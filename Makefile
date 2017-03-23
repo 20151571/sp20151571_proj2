@@ -1,6 +1,6 @@
 CC = gcc
 CFLAGS = -Wall
-SRCS = 20151571.c sp_proj1.c
+SRCS = function.c 20151571.c sp_proj1.c sp_proj2.c
 OBJECTS=$(SRCS:.c=.o)
 
 TARGET = 20151571.out

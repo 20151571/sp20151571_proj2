@@ -5,14 +5,17 @@ int main(void){
     char tmpc;
     const int Max_len = 256; 
     int len = 0;
-    init();
+    Hash hashTable;
+    History Hhead;
+    Shell_Memory Shmemory;
+    init ( &Hhead, Shmemory, hashTable);
 
     while(1){
         printf("sicsim> ");
         len = 0;
         while( ( tmpc = getchar() )  != '\n'){
             if ( tmpc == EOF )
-                command_quit();
+                exit(EXIT_FAILURE);
 
             if( len > Max_len )
                 continue;
@@ -25,7 +28,7 @@ int main(void){
         }
         
         buffer[len] = '\0';
-        main_process(buffer);
+        main_process(buffer, &Hhead, Shmemory, hashTable);
     }
     return 0;
 }
