@@ -1,5 +1,4 @@
 #include "20151571.h"
-#include "sp_proj2.h"
 
 const char *help_list[] = {
     "h[elp]",
@@ -151,7 +150,7 @@ void get_opcode(Hash hashTable){
 
     while ( fgets(buffer, sizeof(buffer), fp) != NULL ){
         sscanf(buffer, "%x %s %s", &n_opcode, str_opcode, code ); //space나 tab 같은 것들 처리
-        Hash_insert(hashTable, n_opcode, str_opcode); //hash에 insert
+        Hash_insert(hashTable, n_opcode, str_opcode, code); //hash에 insert
     }
     fclose(fp);
 }
@@ -209,13 +208,14 @@ int Hash_find(Hash hashTable, char *mnemonic){
 /* Hash에 mnemonic을 insert하는 함수
  * 적절한 key를 사용하여 insert한다(여기서는 key % hash_size를 이용한다)
  */
-void Hash_insert(Hash hashTable, int n_opcode, char *mnemonic){
+void Hash_insert(Hash hashTable, int n_opcode, char *mnemonic, char *code){
     Hnode ptr;
     Hnode nptr;
     int Hash_size = hashTable.size;
     int key = 0;
     nptr = malloc(sizeof(Hash_Node));
-    strncpy ( nptr -> str_opcode, mnemonic, sizeof(nptr -> str_opcode) );
+    strncpy ( nptr->str_opcode, mnemonic, sizeof(nptr->str_opcode) );
+    strncpy( nptr->code , code, sizeof(nptr->code) );
 
     for( int i = 0; i < (int)strlen(mnemonic); ++i )
         key += mnemonic[i];
@@ -276,6 +276,7 @@ void main_process(char *buffer, History *head, Shell_Memory Shmemory, Hash hashT
     char str_copy[256];
     int arr[5];
     History Hhead = *head;
+    Symbol_table Stable = { 37 };
     strncpy( str_copy, buffer, sizeof(str_copy));
     command_num = command_check(str_copy); // 명령어 존재하는지 확인
 
@@ -326,7 +327,7 @@ void main_process(char *buffer, History *head, Shell_Memory Shmemory, Hash hashT
                 break;
 
             case assemble:
-                command_assemble(str_copy);
+                command_assemble(hashTable, &Stable, str_copy );
                 break;
 
             case type:

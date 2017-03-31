@@ -8,7 +8,7 @@ int main(void){
     Hash hashTable;
     History Hhead;
     Shell_Memory Shmemory;
-    init ( &Hhead, Shmemory, hashTable);
+    sp1_init ( &Hhead, Shmemory, hashTable);
 
     while(1){
         printf("sicsim> ");
