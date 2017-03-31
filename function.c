@@ -1,4 +1,5 @@
 #include "20151571.h"
+#include "sp_proj2.h"
 
 const char *help_list[] = {
     "h[elp]",
@@ -51,7 +52,7 @@ void str_replace(char *target, const char *orig, const char *repl){
     char buffer[256] = { 0 }; // target string을 copy할 배열
     char *insert_point = buffer; // replace할 point를 저장할 pointer
     const char *tmp = target; // target의원래 주소를 저장한 pointer
-    size_t orig_len = strlen(orig); 
+    size_t orig_len = strlen(orig);
     size_t repl_len = strlen(repl);
     while (1) {
         const char *p = strstr(tmp, orig); // p = orig을 포함한 문자열의 위치
@@ -114,7 +115,7 @@ int command_find(char *str_cmp){
     for ( i = 0; i < size; ++i)
         if ( strcmp(Help[i], str_cmp) == 0)
             return i;
-    printf("The corresponding command does not exist.\n"); 
+    printf("The corresponding command does not exist.\n");
     return -1;
 }
 
@@ -174,7 +175,7 @@ void add_history(History *head, char *command){
 }
 
 // 초기화 함수
-void init(History *Hhead, Shell_Memory Shmemory, Hash hashTable){
+void sp1_init(History *Hhead, Shell_Memory Shmemory, Hash hashTable){
     int i;
     *Hhead = NULL;
     hashTable.size = 20;
@@ -254,7 +255,7 @@ int command_check(char *user_str){
         token = strtok(NULL, sep);
     }
 
-    if ( ( 0 <= command_num && command_num <= 7 ) || command_num ==  14 
+    if ( ( 0 <= command_num && command_num <= 7 ) || command_num ==  14
             || command_num == 16 || command_num == 19)
         if ( len > 1 )
             return -1; // dir나 help 같은 추가로 입력할 것이 없는 명령어 에러 확인
@@ -325,11 +326,11 @@ void main_process(char *buffer, History *head, Shell_Memory Shmemory, Hash hashT
                 break;
 
             case assemble:
-                command_assemble();
+                command_assemble(str_copy);
                 break;
 
             case type:
-                command_type();
+                command_type(str_copy);
                 break;
 
             case symbol:

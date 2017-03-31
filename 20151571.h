@@ -55,7 +55,7 @@ int Hash_find(Hash hashTable, char *); // hash에서 찾는 함수
 void get_opcode(Hash hashTable);
 void Hash_insert(Hash hashTable, int value, char *mnemonic); // hash에 insert하는 함수
 
-void init(History *, Shell_Memory, Hash); // 초기화
+void sp1_init(History *, Shell_Memory, Hash); // 초기화
 void command_reset(Shell_Memory ); // reset인 경우 처리해주는 함수
 
 void command_help(const char **help_list, int size); // helplist를 출력하는 함수
@@ -70,11 +70,6 @@ void command_reset(Shell_Memory ); // reset인 경우 처리해주는 함수
 int command_opcode(Hash, char *mnemonic); // opcode인 경우 처리해주는 함수
 int command_check(char *buffer); // 명령어를 옳바르게 입력한지 확인해주는 함수력
 void command_quit(Hash hashTable, History *head); // 입력한 명령어가 quit 일 때 process를 종료시켜주는 함수
-
-//project #2
-void command_assemble();
-void command_type();
-void command_symbol();
 
 //project #1, #2
 void main_process(char *buffer, History *, Shell_Memory, Hash ); // 명령어 string을 받아처리해주는 함수
