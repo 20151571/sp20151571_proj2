@@ -33,10 +33,10 @@ typedef struct MEMORY{
 
 typedef struct{
     int base_address;
-    int locr;
+    int location;
     int line;
     int address;
-    int memory;
+    int program_len;
     char **argu;
 }Pass1;
 
@@ -51,10 +51,11 @@ typedef struct __SYMBOL__{
 typedef struct{
     const int size; // 37
     Symbol *table[37];
+    Hash *hashTable;
 }Symbol_table;
 
 typedef struct{
-    int address;
+    int location;
     int format; // format 0 : 주석
     int obj_code;
     char asmd[30];

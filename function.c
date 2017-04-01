@@ -277,6 +277,7 @@ void main_process(char *buffer, History *head, Shell_Memory Shmemory, Hash hashT
     int arr[5];
     History Hhead = *head;
     Symbol_table Stable = { 37 };
+    Stable.hashTable = &hashTable;
     strncpy( str_copy, buffer, sizeof(str_copy));
     command_num = command_check(str_copy); // 명령어 존재하는지 확인
 
@@ -327,7 +328,7 @@ void main_process(char *buffer, History *head, Shell_Memory Shmemory, Hash hashT
                 break;
 
             case assemble:
-                command_assemble(hashTable, &Stable, str_copy );
+                command_assemble( &Stable, str_copy );
                 break;
 
             case type:

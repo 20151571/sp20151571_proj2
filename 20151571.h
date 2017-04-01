@@ -45,7 +45,7 @@ int command_opcode(Hash, char *mnemonic); // opcode인 경우 처리해주는 �
 int command_check(char *buffer); // 명령어를 옳바르게 입력한지 확인해주는 함수력
 void command_quit(Hash hashTable, History *head); // 입력한 명령어가 quit 일 때 process를 종료시켜주는 함수
 
-int command_assemble(Hash, Symbol_table *, char *); // assemble 명령어를 수행하는 함수
+int command_assemble(Symbol_table *, char *); // assemble 명령어를 수행하는 함수
 int command_type(char *); // type 명령어를 수행하는 함수
 void command_symbol(); // symbol 명령어를 수행하는 함수
 
