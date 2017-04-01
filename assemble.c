@@ -106,8 +106,19 @@ int get_asmd(char *string) {
     return -1; // error
 }
 
-int loc_count(char *string){
-    int asmd;
+int get_byte(char **argu){
+    if ( argu[2] != NULL ) // byte 값에서 추가로 하나 더 적혀 있는 경우 에
+        return -1;
+    if ( (argu[1][0] == 'C' || argu[1][0] == 'c')){
+
+    }
+
+    if ( (argu[1][0] == 'X' || argu[1][0] == 'x')){
+
+    }
+}
+
+int loc_count(char *string, int asmd){
     int len = 0;
     char *token = NULL;
     int location;
@@ -134,13 +145,13 @@ int loc_count(char *string){
 
 int get_type(char *string, Hash hashTable){
     if ( strcmp (string , "." ) == 0 )
-        return 0;
+        return comment;
     else if( ( string[0] == '+' && hash_find ( hashTable, string + 1) != -1 )
            ||  hash_find ( hashTable, string ) != -1  )
-        return 1; // opcode
+        return opcode; // opcode
     else if ( get_asmd(string) != -1 )
-        return 2; // assembly directives
-    return 3; // label
+        return asmd; // assembly directives
+    return label; // label
 }
 
 int get_argu(char *buffer, char *argu[], Hash hashTable){
@@ -156,29 +167,33 @@ int get_argu(char *buffer, char *argu[], Hash hashTable){
         token = strtok(NULL, sep);
     }
 
-    if ( type[0] == 0) // comment
-        return 0;
+    argu[len] = NULL;
 
-    if( type[0] == 2){ // assembly directives
+    if ( type[0] == comment) // comment
+        return comment; 
+    else if ( type[0] == opcode) // opcode
+        return opcode;
+    else if( type[0] == asmd){ // assembly directives
         if ( get_asmd(argu[0]) == end )
-            return 3;
-        return 1;
+            return pass1_end;
+        return asmd;
     }
 
-    else if ( type[0] == 3){ // label
+    else if ( type[0] == label){ // label
         num = get_asmd(argu[1]);
         if( num == start )
-            return 2; // label이 있는 start
+            return pass1_start; // label이 있는 start
         else if ( num == end)
-            return 3; // label이 있는 end
-        return 4;
+            return label_end; // label이 있는 end
+        return label;
     }
     return -1;
 }
 
 int make_line(char *string, int type, size_t idx,
         int *flag, Pass1 *Pinfo, line_inform *line_info){
-    char *error; 
+    char *error;
+    int byte_val = 0;
     if ( type == 0 ){ // comment 인 경우
         line_info[idx].format = 0;
         strncpy( line_info[idx].comment, string,
@@ -189,12 +204,12 @@ int make_line(char *string, int type, size_t idx,
     else if ( type == 1){ // assembly directives
         strcpy(line_info[idx].asmd, Pinfo->argu[0]);
         if ( get_asmd ( Pinfo->argu[0]) == byte ){
-            
+            byte_val = get_byte(Pinfo->argu);
         }
     }
 
     else if ( type == 2 ){ // start인 경우
-        if ( !(*flag) ) // start가 처음이 아닌 경우
+        if ( !(*flag) ) // 러start가 처음이 아닌 경우
             return -1;
         Pinfo->locr = strtol(Pinfo->argu[2], &error, 16);
         if( error != NULL) // 16진수에 에러 있는 경우
@@ -203,10 +218,10 @@ int make_line(char *string, int type, size_t idx,
         strncpy(line_info[idx].symbol, Pinfo->argu[0], sizeof(line_info[idx].symbol));// start symbol
     }
 
-   else if ( type == 3) // label있는 경우
+   else if ( type == 3) // end인 경우
         Pinfo->memory = Pinfo->locr - Pinfo->memory;
-
-    *flag = 1;
+    
+   *flag = 1;
 
      return -1;
 }
