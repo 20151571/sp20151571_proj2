@@ -34,8 +34,8 @@ const char *Help[] = {
     "reset",
     "opcode",
     "opcodelist",
-    "assemble filename",
-    "type filename",
+    "assemble",
+    "type",
     "symbol"
 };
 
@@ -73,13 +73,14 @@ void str_replace(char *target, const char *orig, const char *repl){
  * 이상한 입력이 들어온 경우 return -1
  */
 int get_values(char *buffer, int *arr){
-    char *token;
+    char *token, *bef;
     char *error;
     char sep[] = " \t";
     int idx= 0, flag = 1; // flag는 에러 체크할 변수
     int value;
     token = strtok(buffer, sep);
     while(token != NULL){
+        bef = token;
         token = strtok(NULL, sep);
         if ( token == NULL)
             break;
@@ -101,6 +102,8 @@ int get_values(char *buffer, int *arr){
             flag = 0;
         }
     }
+    if(*bef == ',')
+        return -1;
     return idx;
 }
 
@@ -135,7 +138,7 @@ int get_command(char *buffer){
 }
 
 // opcode.txt에서 opcode를입력받아서 저장하는 함수
-void get_opcode(Hash hashTable){
+void get_opcode(Hash *hashTable){
     FILE *fp;
     char buffer[256];
     int n_opcode;
@@ -174,17 +177,17 @@ void add_history(History *head, char *command){
 }
 
 // 초기화 함수
-void sp1_init(History *Hhead, Shell_Memory Shmemory, Hash hashTable){
+void sp1_init(History *Hhead, Shell_Memory *Shmemory, Hash *hashTable){
     int i;
     *Hhead = NULL;
-    hashTable.size = 20;
-    for ( i = 0; i < hashTable.size; ++i )
-        hashTable.Table[i] = NULL;
+    hashTable->size = 20;
+    for ( i = 0; i < hashTable->size; ++i )
+        hashTable->Table[i] = NULL;
 
-    Shmemory.last_address = 1048575;
-    Shmemory.max_address = 1048575;
-    for( i = 0; i < Shmemory.max_address; ++i)
-        Shmemory.memory[i] = 0;
+    Shmemory->last_address = 1048575;
+    Shmemory->max_address = 1048575;
+    for( i = 0; i < Shmemory->max_address; ++i)
+        Shmemory->memory[i] = 0;
     get_opcode(hashTable); //opcode 저장
 }
 
@@ -192,12 +195,12 @@ void sp1_init(History *Hhead, Shell_Memory Shmemory, Hash hashTable){
  * 존재하면 number opcode를 return
  * 존재하지 않으면 return -1
  */
-int Hash_find(Hash hashTable, char *mnemonic){
+int Hash_find(Hash *hashTable, char *mnemonic){
     int opcode = -1;
     int i;
     Hnode ptr;
-    for ( i = 0; i < hashTable.size; ++i ){ // hash_table에서 일일이 찾는다
-        for ( ptr = hashTable.Table[i]; ptr != NULL; ptr = ptr -> next ){
+    for ( i = 0; i < hashTable->size; ++i ){ // hash_table에서 일일이 찾는다
+        for ( ptr = hashTable->Table[i]; ptr != NULL; ptr = ptr -> next ){
             if ( strcmp( ptr->str_opcode , mnemonic ) == 0)
                 return  ( opcode = ptr -> n_opcode );
         }
@@ -208,10 +211,10 @@ int Hash_find(Hash hashTable, char *mnemonic){
 /* Hash에 mnemonic을 insert하는 함수
  * 적절한 key를 사용하여 insert한다(여기서는 key % hash_size를 이용한다)
  */
-void Hash_insert(Hash hashTable, int n_opcode, char *mnemonic, char *code){
+void Hash_insert(Hash *hashTable, int n_opcode, char *mnemonic, char *code){
     Hnode ptr;
     Hnode nptr;
-    int Hash_size = hashTable.size;
+    int Hash_size = hashTable->size;
     int key = 0;
     nptr = malloc(sizeof(Hash_Node));
     strncpy ( nptr->str_opcode, mnemonic, sizeof(nptr->str_opcode) );
@@ -223,12 +226,12 @@ void Hash_insert(Hash hashTable, int n_opcode, char *mnemonic, char *code){
     nptr -> next = NULL;
 
     key = key % Hash_size;
-    ptr = hashTable.Table[key];
+    ptr = hashTable->Table[key];
 
     if(ptr != NULL)
         nptr -> next = ptr;
 
-    hashTable.Table[key] = nptr;
+    hashTable->Table[key] = nptr;
 }
 
 /* 입력한 명령어가 존재하는지 확인하는 함수
@@ -270,14 +273,14 @@ int command_check(char *user_str){
 /* 사용자가 입력한 명령어를 처리해주는 함수
  * 명령어에 따라 적절하게 처리해준다.
  */
-void main_process(char *buffer, History *head, Shell_Memory Shmemory, Hash hashTable){
+void main_process(char *buffer, History *head, Shell_Memory *Shmemory, Hash *hashTable){
     int command_num;
     int error_check;
     char str_copy[256];
     int arr[5];
     History Hhead = *head;
     Symbol_table Stable = { 37 };
-    Stable.hashTable = &hashTable;
+    Stable.hashTable = hashTable;
     strncpy( str_copy, buffer, sizeof(str_copy));
     command_num = command_check(str_copy); // 명령어 존재하는지 확인
 
@@ -286,7 +289,7 @@ void main_process(char *buffer, History *head, Shell_Memory Shmemory, Hash hashT
         error_check = 1;
         switch(command_num){
             case help:
-                command_help(Help, sizeof(Help) / sizeof(char * ) );
+                command_help(help_list, sizeof(help_list) / sizeof(char * ) );
                 break;
 
             case dir:
@@ -332,7 +335,7 @@ void main_process(char *buffer, History *head, Shell_Memory Shmemory, Hash hashT
                 break;
 
             case type:
-                command_type(str_copy);
+                error_check = command_type(str_copy);
                 break;
 
             case symbol:

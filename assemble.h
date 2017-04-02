@@ -35,17 +35,22 @@ int get_asmd(char *); // 어떤 asmd인지 구해주는 함수.
 int get_byte(char **, line_inform *line_info); // byte인 경우 값을 구해주는 함
 int loc_count(char *, int asmd, int location ); // location counter
 int tokenize(char *, int );
-int get_objcode(int opcode, int n, int i, int, int x, int b, int p, int e, int address);
+int get_objcode(int opcode, int n, int i, int x,
+       int b, int p, int e, int address);
 int get_operhand(char *); // operhand를 구해주는 함수
 int get_argu(char *, char **, Hash *); // 인자 개수를 확인해주는 함수
-int obj_byte(FILE *, Symbol_table*, line_inform *line_info, object_inform *,int *, int *);
-int obj_opcode(FILE *, Hash *, Symbol_table *, line_inform *, object_inform *,int *, int *, int *);
+int obj_byte(FILE *, Symbol_table*, line_inform *line_info,
+        object_inform *,int *, int *);
+int obj_opcode(FILE *, Hash *, Symbol_table *, line_inform *,
+        object_inform *,int *, int *, int *);
+int remove_char(char *, Symbol_table *, int *, int *);
 int asmd_process(char **, line_inform *line_info, int location);
 int opcode_process(Pass1 *, Hash *, char **, line_inform *line_info);
 int make_line(char *string, int type, size_t idx, int *flag,
         Symbol_table *, Pass1 *Pinfo, line_inform *line_info);
 void make_objfile();
-int assembler_pass2(char *filename, Symbol_table *, int length, Pass1 *Pinfo, line_inform *line_info);
+int assembler_pass2(char *filename, Symbol_table *, int length,
+        Pass1 *Pinfo, line_inform *line_info);
 void print_file(char *); // file 내용을 출력하는 함수
 
 #endif

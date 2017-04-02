@@ -8,8 +8,7 @@ int main(void){
     Hash hashTable;
     History Hhead;
     Shell_Memory Shmemory;
-    sp1_init ( &Hhead, Shmemory, hashTable);
-
+    sp1_init ( &Hhead, &Shmemory, &hashTable);
     while(1){
         printf("sicsim> ");
         len = 0;
@@ -28,7 +27,7 @@ int main(void){
         }
         
         buffer[len] = '\0';
-        main_process(buffer, &Hhead, Shmemory, hashTable);
+        main_process(buffer, &Hhead, &Shmemory, &hashTable);
     }
     return 0;
 }

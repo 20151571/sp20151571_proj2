@@ -43,11 +43,11 @@ void command_history(History head){
 }
 
 //opcodelist를 출력하는 함수
-void command_opcodelist(Hash hashTable){
+void command_opcodelist(Hash *hashTable){
     Hnode ptr;
     for ( int i = 0; i < 20; ++i){
         printf("%d : ", i);
-        for ( ptr = hashTable.Table[i]; ptr != NULL; ptr = ptr -> next){
+        for ( ptr = hashTable->Table[i]; ptr != NULL; ptr = ptr -> next){
             printf("[%s,%X]", ptr->str_opcode, ptr->n_opcode);
             if(ptr -> next != NULL)
                 printf(" -> ");
@@ -60,14 +60,14 @@ void command_opcodelist(Hash hashTable){
  * boundary check 에서 boundary error가 발견되면 return -1
  * 정상적인 경우 return 1
  */
-int print_memory(Shell_Memory Shmemory, int start, int end){
+int print_memory(Shell_Memory *Shmemory, int start, int end){
     int str_hex = start / 16 * 16,
         end_hex = end / 16 * 16; // 16단위로 끊어서 세기 위함
     int i, j;
-    unsigned char *memory = Shmemory.memory;
+    unsigned char *memory = Shmemory->memory;
 
     if(start <= end && start >= 0){ // boundary check
-        end = end <= Shmemory.max_address ? end : Shmemory.max_address ; // end boundary check  
+        end = end <= Shmemory->max_address ? end : Shmemory->max_address ; // end boundary check  
         for ( i = str_hex; i <= end_hex; i += 16){
             printf("%05X ", i);
             for(j = 0; j < 16; ++j){
@@ -103,11 +103,11 @@ int print_memory(Shell_Memory Shmemory, int start, int end){
  * dump start. end만 입력한 경우 start부터 end까지 출력해준다.
  * start. end가 16진수가 아니거나 범위를 넘어가는 경우는 출력하지 않고 에러처리한다.
  */
-int command_dump(Shell_Memory Shmemory, char *buffer, int *arr){
+int command_dump(Shell_Memory *Shmemory, char *buffer, int *arr){
     int len = 0, num = 0;
-    int start_address = ( Shmemory.last_address + 1 ) % 
-        ( Shmemory.max_address + 1 ) ,
-        end_address = min ( start_address + 159, Shmemory.max_address ); 
+    int start_address = ( Shmemory->last_address + 1 ) % 
+        ( Shmemory->max_address + 1 ) ,
+        end_address = min ( start_address + 159, Shmemory->max_address ); 
     // start_address와 end_address 기본 dump인 경우를 위한  초기화 부분.
     char tmp[256];
     for ( int i = 0; i  < (int)strlen(buffer); ++i )
@@ -116,14 +116,15 @@ int command_dump(Shell_Memory Shmemory, char *buffer, int *arr){
 
     strncpy(tmp, buffer, sizeof(tmp)); 
     str_replace(tmp, "," , " , ");
-    if ( ( len = get_values(tmp, arr) ) == -1){
+    len = get_values(tmp, arr);
+    if ( len == -1 || len > 2 ){
         fprintf(stderr, "get value error!\n");
         return -1;
     }
     if ( len == 1){
         if( num != 0)
             return -1;
-        start_address = arr[0], end_address = min ( start_address + 159, Shmemory.max_address );
+        start_address = arr[0], end_address = min ( start_address + 159, Shmemory->max_address );
     }
 
     else if ( len == 2){
@@ -134,13 +135,14 @@ int command_dump(Shell_Memory Shmemory, char *buffer, int *arr){
     else if ( len > 2)
         return -1;
 
-    if ( start_address > Shmemory.max_address ||
+    if ( start_address > Shmemory->max_address ||
             start_address > end_address){
         printf("Address Error!\n");
         return -1;
     }
+
     print_memory (Shmemory, start_address, end_address );
-    Shmemory.last_address = end_address;
+    Shmemory->last_address = end_address;
     return 1;
 }
 
@@ -148,7 +150,7 @@ int command_dump(Shell_Memory Shmemory, char *buffer, int *arr){
  * 정상적인 경우 return 1
  * error check에 걸린 경우 return -1
  */
-int command_edit(Shell_Memory Shmemory, char *buffer, int *arr){
+int command_edit(Shell_Memory *Shmemory, char *buffer, int *arr){
     int address, value;
     int num = 0;
     char tmp[256];
@@ -175,8 +177,8 @@ int command_edit(Shell_Memory Shmemory, char *buffer, int *arr){
         return -1;
     }
 
-    if( 0 <= address && address <= Shmemory.max_address){ // boundary check
-        Shmemory.memory[address] = value;
+    if( 0 <= address && address <= Shmemory->max_address){ // boundary check
+        Shmemory->memory[address] = value;
         return 1;
     }
     return -1;
@@ -186,7 +188,7 @@ int command_edit(Shell_Memory Shmemory, char *buffer, int *arr){
  * 정상적인 경우 return 1
  * error check에 걸린 경우 return -1
  */
-int command_fill(Shell_Memory Shmemory, char *buffer, int *arr){
+int command_fill(Shell_Memory *Shmemory, char *buffer, int *arr){
     int num = 0;
     int start, end, value;
     char tmp[256];
@@ -214,9 +216,9 @@ int command_fill(Shell_Memory Shmemory, char *buffer, int *arr){
         fprintf ( stderr, "value boundary error!\nvalue must 0 <= value <= 0xFF");
         return -1;
     }
-    if(start >= 0 && start <= end && end <= Shmemory.max_address){ // boundary check
+    if(start >= 0 && start <= end && end <= Shmemory->max_address){ // boundary check
         for(int i = start; i <= end; ++i)
-            Shmemory.memory[i] = value;
+            Shmemory->memory[i] = value;
         return 1;
     }
     return -1;
@@ -225,20 +227,20 @@ int command_fill(Shell_Memory Shmemory, char *buffer, int *arr){
 /* reset 명령어를 처리해주는 함수
  * 메모리를 모두 0x00으로 초기화해준다.
  */
-void command_reset(Shell_Memory Shmemory){
-    unsigned char *memory = Shmemory.memory;
+void command_reset(Shell_Memory *Shmemory){
+    unsigned char *memory = Shmemory->memory;
     int i;
-    for ( i = 0; i < Shmemory.max_address; ++i )
+    for ( i = 0; i < Shmemory->max_address; ++i )
         memory[i] = 0;
 }
 
 /* quit 명령어를 처리해주는 함수 
  * 추가로 동적할당한 부분을 free 해주고 종료한다.
  */
-void command_quit(Hash hashTable, History *hi_head){
+void command_quit(Hash *hashTable, History *hi_head){
     Hnode hptr, Hhead;
-    for ( int i = 0; i < hashTable.size; ++i ){
-        Hhead = hashTable.Table[i];
+    for ( int i = 0; i < hashTable->size; ++i ){
+        Hhead = hashTable->Table[i];
         for ( ; Hhead != NULL; ){
             hptr = Hhead;
             Hhead = Hhead->next;
@@ -252,7 +254,7 @@ void command_quit(Hash hashTable, History *hi_head){
 /* opcode 명령어를 처리해주는 함수
  * 
  */
-int command_opcode(Hash hashTable, char *buffer ){
+int command_opcode(Hash *hashTable, char *buffer ){
     char tmp[256];
     int len = 0, n_opcode;
     char sep[] = " \t";

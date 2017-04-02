@@ -24,32 +24,30 @@ int command_find(char *str_cmp); // 입력한 명령어가 있는지 찾고몇�
 int get_command(char *buffer); // 입력한 명령어를 사용하기 위해 적절히 숫자를 지정해주는 함수
 void add_history(History *head, char *command); // history에 추가하는 함수
 
-int Hash_find(Hash hashTable, char *); // hash에서 찾는 함수
+int Hash_find(Hash *hashTable, char *); // hash에서 찾는 함수
 
-void get_opcode(Hash hashTable);
-void Hash_insert(Hash hashTable, int value, char *mnemonic, char *code); // hash에 insert하는 함수
+void get_opcode(Hash *hashTable);
+void Hash_insert(Hash *hashTable, int value, char *mnemonic, char *code); // hash에 insert하는 함수
 
-void sp1_init(History *, Shell_Memory, Hash); // 초기화
-void command_reset(Shell_Memory ); // reset인 경우 처리해주는 함수
+void sp1_init(History *, Shell_Memory *, Hash *); // 초기화
+void command_reset(Shell_Memory *); // reset인 경우 처리해주는 함수
 
 void command_help(const char **help_list, int size); // helplist를 출력하는 함수
 void command_dir(); // dir를 출력하는 함수
 void command_history(History head); // history를 출력하는 함수
-void command_opcodelist(Hash hashTable); // opcodelist를 출력하는 함수
-int print_memory(Shell_Memory , int start, int end); // memory를 start부터 end까지 출력하는 함수
-int command_dump(Shell_Memory , char *bufffer, int *arr); // 입력한 명령어가 dump인 경우 처리해주는 함수
-int command_edit(Shell_Memory , char *buffer, int *arr); // 입력한 명령어가 edit인 경우 처리해주는 함수
-int command_fill(Shell_Memory , char *buffer, int *arr); // fill인 경우 처리해주는 함수
-void command_reset(Shell_Memory ); // reset인 경우 처리해주는 함수
-int command_opcode(Hash, char *mnemonic); // opcode인 경우 처리해주는 함수
+void command_opcodelist(Hash *hashTable); // opcodelist를 출력하는 함수
+int print_memory(Shell_Memory *, int start, int end); // memory를 start부터 end까지 출력하는 함수
+int command_dump(Shell_Memory *, char *bufffer, int *arr); // 입력한 명령어가 dump인 경우 처리해주는 함수
+int command_edit(Shell_Memory *, char *buffer, int *arr); // 입력한 명령어가 edit인 경우 처리해주는 함수
+int command_fill(Shell_Memory *, char *buffer, int *arr); // fill인 경우 처리해주는 함수
+void command_reset(Shell_Memory *); // reset인 경우 처리해주는 함수
+int command_opcode(Hash *, char *mnemonic); // opcode인 경우 처리해주는 함수
 int command_check(char *buffer); // 명령어를 옳바르게 입력한지 확인해주는 함수력
-void command_quit(Hash hashTable, History *head); // 입력한 명령어가 quit 일 때 process를 종료시켜주는 함수
+void command_quit(Hash *hashTable, History *head); // 입력한 명령어가 quit 일 때 process를 종료시켜주는 함수
 
 int command_assemble(Symbol_table *, char *); // assemble 명령어를 수행하는 함수
 int command_type(char *); // type 명령어를 수행하는 함수
 void command_symbol(); // symbol 명령어를 수행하는 함수
 
-
-
-void main_process(char *buffer, History *, Shell_Memory, Hash ); // 명령어 string을 받아처리해주는 함수
+void main_process(char *buffer, History *, Shell_Memory *, Hash *); // 명령어 string을 받아처리해주는 함수
 #endif

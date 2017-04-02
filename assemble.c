@@ -19,7 +19,6 @@ void symbol_init(Symbol_table *Stable){
 }
 
 Hnode opcode_find(Hash *hashTable, char *mnemonic){
-	int opcode = -1;
 	int i;
 	Hnode ptr;
 	for ( i = 0; i < hashTable->size; ++i ){ // hash_table에서 일일이 찾는다
@@ -49,14 +48,12 @@ symbolPtr symbol_find(Symbol_table *Stable, char *string){
 }
 
 void symbol_insert(Symbol_table *Stable, char *string, int address){
-	int key;
+	int key = get_Stablekey(Stable, string);
 	symbolPtr ptr = NULL;
 	ptr = ( symbolPtr ) malloc ( sizeof (Symbol) );
 	strncpy ( ptr->symbol, string, sizeof(ptr->symbol));
 	ptr->address = address;
-	ptr->next = Stable->table[key];
-
-	key = get_Stablekey(Stable, string);
+    ptr->next = Stable->table[key];
 
 	if(Stable->table[key] == NULL)
 		Stable->table[key] = ptr;
@@ -117,17 +114,30 @@ int get_asmd(char *string) {
  *
  */
 int get_byte(char **argu, line_inform *line_info){
-	char copy[50];
-	strncpy(copy, argu[1], sizeof(copy));
-	if ( argu[2] != NULL ) // byte 값에서 추가로 하나 더 적혀 있는 경우 에
+	char *string = &argu[1][1];
+    char *error = NULL;
+    if ( argu[2] != NULL ) // byte 값에서 추가로 하나 더 적혀 있는 경우 에
 		return -1;
-	if ( (copy[0] == 'C' || copy[0] == 'c')
-			|| (copy[0] == 'X' || copy[0] == 'x') ){
-		copy[0] = ( 'A' <= copy[0]  && 'Z' >= copy[0] ) ?
-			copy[0] : (copy[0] - 'a' + 'A');
-        return 1;
+	if ( (argu[1][0] == 'C' || argu[1][0] == 'c')
+			|| (argu[1][0] == 'X' || argu[1][0] == 'x') ){
+		argu[1][0] = ( 'A' <= argu[1][0]  && 'Z' >= argu[1][0] ) ?
+			argu[1][0] : (argu[1][0] - 'a' + 'A');
 	}
-    return -1;
+
+    if ( argu[1][0] == 'C' ) {
+        for ( int i = 0; i < strlen(string) - 1; ++i){
+            if ( !( ('A' <= string[i] && string[i] <= 'Z') ||
+                        ('a' <= string[i] && string[i] <= 'z') ) )
+                return -1;
+        }
+    }
+
+    else if ( argu[1][0] == 'X' ) {
+        strtol(string, &error, 16);
+        if ( *error != 39)
+            return -1;
+    }
+    return 1;
 }
 
 int loc_count(char *string, int asmd, int location){
@@ -200,8 +210,8 @@ int get_argu(char *buffer, char *argu[], Hash *hashTable){
 	return -1;
 }
 
-int get_objcode(int opcode, int n, int i, int x, int b,
-        int p, int e, int address){
+int get_objcode(int opcode, int n, int i, int x,
+        int b, int p, int e, int address) {
     int opcode_tmp, code = 0, code_tmp = 1;
     int bit[34] = { 0, };
     int len= 0 , idx = 0;
@@ -219,12 +229,13 @@ int get_objcode(int opcode, int n, int i, int x, int b,
 
     bit[6] = n; bit[7] = i; bit[8] = x;
     bit[9] = b; bit[10] = p; bit[11] = e;
+
     for( idx = len; address >= 2; --idx){
         bit[idx] = address % 2;
         address /= 2;
     }
     bit[idx] = address;
-    
+
     for( idx = 0; idx <= 23 + 8 * e; ++i ){
         if(bit[i] == 1)
             for ( int j = 0; j < 23 + 8 *e -i; ++j)
@@ -259,12 +270,33 @@ int opcode_process(Pass1 *Pinfo, Hash *hashTable, char **argu, line_inform *line
 	return 1;
 }
 
+int remove_char(char *string, Symbol_table *symbolTable, int *n, int *i){
+    char *error = NULL;
+	
+    if(string[0] == '#' || string[0] == '@') {
+        string[0] == '#' ? (*i = 1) : (*n = 1);
+        strcpy(string,string + 1);
+        strtol(string, &error, 10);
+        if ( error != NULL && symbol_find(symbolTable, string) == NULL)	//symbol이 아니면 10진수
+            return -1;
+    }
+
+    else													//#도 @도 아니면 n은 1, i는 1
+        *i = 1; *n = 1;
+
+	if(strchr(string,'#') != NULL || strchr(string,'@') != NULL)	//두 개 있으면 에러
+		return -1;
+	return 0;
+}
+
 int asmd_process(char **argu, line_inform *line_info, int location){
 	int byte_val;
 	int asmd = get_asmd(argu[0]);
 	strcpy (line_info->operhand, argu[1]);
 	if ( asmd== byte ){
 		byte_val = get_byte(argu, line_info);
+        if ( byte_val == -1)
+            return -1;
 		return loc_count(line_info->operhand, byte, location);
 	}
 
@@ -283,9 +315,13 @@ int asmd_process(char **argu, line_inform *line_info, int location){
  * label이 있는 경우 argu[0] = label argu[1] = opcode or assembly directives
  */
 int make_line(char *string, int type, size_t idx, int *flag,
-		Symbol_table *Stable, Pass1 *Pinfo, line_inform *line_info){
+		Symbol_table *Stable, Pass1 *Pinfo, line_inform *line_info) {
+	
 	char *error;
 	int label_type;
+	printf ("make_line : %d\n", (int)idx);
+    printf("argu1 : %s\nargu2 : %s\nargu3 : %s\n", Pinfo->argu[0], Pinfo->argu[1], Pinfo->argu[2]);
+
 	if ( type == comment ){ // comment 인 경우
 		line_info[idx].format = 0;
 		strncpy( line_info[idx].comment, string,
@@ -304,10 +340,11 @@ int make_line(char *string, int type, size_t idx, int *flag,
 	}
 
 	else if ( type == pass1_start ){ // start인 경우
-		if ( !(*flag) ) // start가 처음이 아닌 경우
+		if ( (*flag) ) // start가 처음이 아닌 경우
 			return -1;
-		Pinfo->location = strtol(Pinfo->argu[2], &error, 16);
-		if( error != NULL) // 16진수에 에러 있는 경우
+
+		Pinfo->location = (int)strtol(Pinfo->argu[2], &error, 16);
+		if( *error != '\0' ) // 16진수에 에러 있는 경우
 			return -1;
 		Pinfo->program_len = Pinfo->location;
 		strncpy(line_info[idx].symbol, Pinfo->argu[0], sizeof(line_info[idx].symbol));// start symbol
@@ -324,8 +361,8 @@ int make_line(char *string, int type, size_t idx, int *flag,
 			return -1;
         line_info[idx].label_flag = 1;
 		label_type = get_type(Pinfo->argu[1], Stable->hashTable);
-
-		if(label_type == opcode){
+        
+		if ( label_type == opcode ) {
 			return opcode_process(Pinfo, Stable->hashTable,
 					&(Pinfo->argu[1]), &line_info[idx]);
 		}
@@ -341,31 +378,33 @@ int make_line(char *string, int type, size_t idx, int *flag,
 		strcpy( line_info[idx].symbol , Pinfo->argu[0]);
 		// line_info[idx].format = 0;
 		strcpy( line_info[idx].asmd, Pinfo->argu[1]);
-		asmd_process ( &(Pinfo->argu[1]), &line_info[idx], Pinfo->location);
 	}
 
 	else
 		return -1;
-
+    fprintf(stderr, "MAKE_LINE FINISHED\n");
 	*flag = 1;
 	return 1;
 }
 
 void print_file(char *filename){
 	FILE *fp;
-	char c, bf;
-
+    int len = 0;
+    char buffer[500], copy[500];
 	fp = fopen(filename, "r");
 	if ( fp == NULL )
 		fprintf(stderr, "FILE OPEN ERROR\n");
 
-	while ( (c = fgetc (fp)) != EOF){
-		bf = c;
-		printf("%c", c);
-	}
-
-	if ( bf != '\n')
-		puts("");
+	while (1){
+        strcpy(copy, buffer);
+        if ( fgets(buffer, sizeof(buffer), fp) == NULL)
+            break;
+        printf("%s", copy);
+    }
+    len = (int)strlen(copy) - 1;
+    if ( copy[len - 1] == '\n')
+        copy[len - 1] = '\0';
+    printf("%s", copy);
 }
 
 int command_assemble(Symbol_table *symbolTable, char *command){
@@ -381,6 +420,7 @@ int command_assemble(Symbol_table *symbolTable, char *command){
 	filename = strtok(command, " \t");
 	filename = strtok(NULL, " \t");
 
+    fp = fopen(filename, "r");
     for ( int i = 0; i < 200; ++i){
         line_info[i].label_flag = 0;
         line_info[i].location = 0;
@@ -397,10 +437,13 @@ int command_assemble(Symbol_table *symbolTable, char *command){
 		strncpy ( copy , buffer, sizeof(copy) );
 		type = get_argu( copy , argu, symbolTable->hashTable);
 		Pinfo.argu = argu;
-		if ( make_line(copy, type, idx++, &flag, symbolTable, &Pinfo, line_info) == -1 )
-			return -1;
+		if ( make_line(copy, type, idx++, &flag, symbolTable, &Pinfo, line_info) == -1 ){
+		    printf("fuck\n");
+            return -1;
+        }
 	}
 	fclose(fp);
+	fprintf(stderr, "HI PASS1!\n");
 	assembler_pass2(filename, symbolTable, idx, &Pinfo, line_info);
 
 	return 1;
@@ -565,16 +608,16 @@ int obj_opcode(FILE *fp, Hash *hashTable, Symbol_table *symbolTable,
                 }
             }
 
-            if(hash_remove(tmp1,&arr[0],&arr[1],symbolTable) == -1) {					//#, @ 및 n, i를 담당
+            if(remove_char(tmp1,symbolTable, &arr[0], &arr[1] ) == -1) { //#, @ 및 n, i를 담당
                 printf("ERROR in immediate or indirect addressing\n");
                 return -1;
             }
 
-            if( ( sptr = symbol_find(symbolTable, tmp1)) != NULL) {					//operhand가 symbol인 경우
+            if( ( sptr = symbol_find(symbolTable, tmp1)) != NULL) {	//operhand가 symbol인 경우
                 symbol_num = sptr->address;
                 if(symbol_num - line_info->location - 3 >= -2048 && symbol_num - line_info->location - 3 <= 2047) {
                     arr[4] = 1; // p
-                    symbol_num = symbol_num - line_info->location - 3;		//pc 가능 범위에 있으면 pc
+                    symbol_num = symbol_num - line_info->location - 3; //pc 가능 범위에 있으면 pc
                     if(symbol_num < 0) 
                         symbol_num = symbol_num & 0x00000FFF;
                 }
@@ -587,8 +630,8 @@ int obj_opcode(FILE *fp, Hash *hashTable, Symbol_table *symbolTable,
                     return -1;
                 }
 
-                line_info->obj_code = get_objcode(hashptr->n_opcode,arr[0], arr[1], arr[2],
-                        arr[3],arr[4],arr[5],symbol_num);
+                line_info->obj_code = get_objcode( hashptr->n_opcode, arr[0], arr[1], arr[2],
+                        arr[3], arr[4], arr[5], symbol_num);
                 fprintf(fp,"%06X\n",line_info->obj_code);
             }
             else { //immediate인 경우
@@ -603,8 +646,8 @@ int obj_opcode(FILE *fp, Hash *hashTable, Symbol_table *symbolTable,
                     return -1;
                 }
 
-                line_info->obj_code = get_objcode(hashptr->n_opcode,arr[0], arr[1], arr[2],
-                        arr[3],arr[4],arr[5],symbol_num);
+                line_info->obj_code = get_objcode(hashptr->n_opcode, arr[0], arr[1], arr[2],
+                        arr[3], arr[4], arr[5], immediate);
                 fprintf(fp,"%06X\n",line_info->obj_code);
             }
 
@@ -627,7 +670,7 @@ int obj_opcode(FILE *fp, Hash *hashTable, Symbol_table *symbolTable,
             }
         }
 
-        if(hash_remove(tmp2, &n,&ia,s_table) == -1) {
+        if(remove_char(tmp2, symbolTable, &arr[0], &arr[1]) == -1) {
             printf("ERROR in immediate or indirect addressing\n");
             return 1;
         }
@@ -635,7 +678,7 @@ int obj_opcode(FILE *fp, Hash *hashTable, Symbol_table *symbolTable,
         sptr = symbol_find(symbolTable, tmp2);
         if(sptr != NULL) {									//operhand가 symbol인 경우
             line_info->obj_code = get_objcode(hashptr->n_opcode,arr[0], arr[1], arr[2],
-                    arr[3],arr[4],arr[5],symbol_num);
+                    arr[3],arr[4],arr[5],sptr->address);
             fprintf(fp,"%06X\n",line_info->obj_code);
             line_info->modi_flag = 1;
         }
@@ -680,6 +723,7 @@ int assembler_pass2(char *filename, Symbol_table *symbolTable, int length,
 	char buffer[256];
 	char copy[256];
     char *errorp;
+    int arr[7];
 	int linenum  = 0, type, symbol_address, num;
 	size_t idx = 0;
 	int end_flag = 0, error = 0, obj_flag = 0, obj_idx = 0;
@@ -693,6 +737,7 @@ int assembler_pass2(char *filename, Symbol_table *symbolTable, int length,
 	strcpy(objname, filename);
 	strcat(objname, ".obj");
 
+    fprintf(stderr, "HI PASS2!\n" );
 	fp = fopen(filename, "r");
 	lstfp = fopen(lstname, "w");
 	objfp = fopen(objname, "w");
@@ -702,6 +747,18 @@ int assembler_pass2(char *filename, Symbol_table *symbolTable, int length,
 	}
 
 	while ( fgets(buffer, sizeof(buffer), fp) != NULL){
+
+		if(error == 1) {											//error
+			printf("************* ERROR LINE **************\n");
+			printf("line : %d : %s", linenum , buffer);
+			printf("***************************************\n");
+			fclose(lstfp);
+			fclose(objfp);
+			remove(lstname);
+			remove(objname);
+			return -1;
+		} 
+
 		n = 0, i = 0, x = 0, b = 0, p = 0, e = 0;
 		if ( buffer[strlen(buffer) - 1] == '\n')
 			buffer[strlen(buffer) - 1] = '\0';
@@ -724,7 +781,8 @@ int assembler_pass2(char *filename, Symbol_table *symbolTable, int length,
                     symbol_address = symbol_address & 0x00000FFF;
 
                 hashptr = opcode_find(hashTable, line_info[idx].symbol);
-                line_info[idx].obj_code = make_objcode(hashptr->n_opcode, n, i, x, b, p, e, symbol_address); 
+                line_info[idx].obj_code = get_objcode(hashptr->n_opcode, n, i, x,
+                        b, p, e, symbol_address);
             }
         }
 
@@ -834,39 +892,26 @@ int assembler_pass2(char *filename, Symbol_table *symbolTable, int length,
 				obj_flag = 1;
 			}
 		}
-		else //opcode 인 경우
+		else { //opcode 인 경우
+            arr[0] = n; arr[1] = i; arr[2] = x; arr[3] = b; arr[4] = p; arr[5] = e;
             error = obj_opcode(lstfp, hashTable, symbolTable, &line_info[idx],
-                        obj_info,&obj_idx, &obj_flag);
-        
-        if(error == 1) {											//error
-            printf("**************** ERROR2 LINE ****************\n");
-			printf("line : %d : %s",linenum, copy);
-			printf("********************************************\n");
-			remove(lstname);
-			remove(objname);
-			return -1;
-		}
+                        obj_info,&obj_idx, &obj_flag, arr);
+        }
         idx++;
 	}
 
 	if ( !end_flag){
-
+        printf("NO END LABEL\n");
 		return -1;
 	}
 	for ( int idx = 0; idx < length; ++i ){
 		fprintf(lstfp, "%-5d\t", linenum);
 
 	}
-	make_objfile();
 	printf("\toutput file : [%s], [%s]\n", lstname, objname);
-
 	fclose(lstfp);
 	fclose(objfp);
 	return 1;
-}
-
-void make_objfile(){
-
 }
 
 /* 현재 디렉토리에 있는 filename 파일을 읽어서 화면에 출력한다.
@@ -878,10 +923,14 @@ int command_type(char *buffer){
 	struct stat buf;
 	int flag = -1;
 	char *filename;
+   
+    filename = strtok(buffer, " \t");
+    filename = strtok(NULL, " \t");
 
-	filename = strtok(buffer, " \t");
-	filename = strtok(NULL, " \t");
-
+    if(filename == NULL){
+        printf("Please input filename\n");
+        return -1;
+    }
 	if( (dirp = opendir(".")) == NULL){ //diropen error check
 		printf("Can not Open Directory\n");
 		return 1;
@@ -898,8 +947,13 @@ int command_type(char *buffer){
 		}
 	}
 	closedir(dirp);
-	return flag == -1 ?
-		printf("type command error!\n") : puts("") ;
+    
+    if ( flag )
+        return 1;
+    else{
+        printf("type command error!\n");
+        return -1;
+    }
 }
 
 /* symbol command 수행하는 함수이다.
