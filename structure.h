@@ -57,6 +57,7 @@ typedef struct{
 typedef struct{
     int location;
     int format; // format 0 : 주석
+    int label_flag;
     int obj_code;
     char asmd[30];
     char opcode[30];

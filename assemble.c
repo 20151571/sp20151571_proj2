@@ -200,6 +200,42 @@ int get_argu(char *buffer, char *argu[], Hash *hashTable){
 	return -1;
 }
 
+int get_objcode(int opcode, int n, int i, int x, int b,
+        int p, int e, int address){
+    int opcode_tmp, code = 0, code_tmp = 1;
+    int bit[34] = { 0, };
+    int len= 0 , idx = 0;
+    opcode_tmp = opcode / 4;
+
+    if ( e == 1)
+        len  = 32;
+    else
+        len = 23;
+
+    for ( idx = 5; idx >= 0; --i){
+        bit[idx] = opcode_tmp % 2;
+        opcode_tmp /= 2;
+    }
+
+    bit[6] = n; bit[7] = i; bit[8] = x;
+    bit[9] = b; bit[10] = p; bit[11] = e;
+    for( idx = len; address >= 2; --idx){
+        bit[idx] = address % 2;
+        address /= 2;
+    }
+    bit[idx] = address;
+    
+    for( idx = 0; idx <= 23 + 8 * e; ++i ){
+        if(bit[i] == 1)
+            for ( int j = 0; j < 23 + 8 *e -i; ++j)
+                code_tmp *= 2;
+        code += code_tmp;
+        code_tmp = 1;
+    }
+
+    return code;
+}
+
 int opcode_process(Pass1 *Pinfo, Hash *hashTable, char **argu, line_inform *line_info){
 	Hnode ptr;
 	int format = 0;
@@ -286,6 +322,7 @@ int make_line(char *string, int type, size_t idx, int *flag,
 					line_info[idx].location);
 		else
 			return -1;
+        line_info[idx].label_flag = 1;
 		label_type = get_type(Pinfo->argu[1], Stable->hashTable);
 
 		if(label_type == opcode){
@@ -344,6 +381,11 @@ int command_assemble(Symbol_table *symbolTable, char *command){
 	filename = strtok(command, " \t");
 	filename = strtok(NULL, " \t");
 
+    for ( int i = 0; i < 200; ++i){
+        line_info[i].label_flag = 0;
+        line_info[i].location = 0;
+    }
+
 	symbol_init(symbolTable);
 	// algorithm for pass1 of assembler 
 	while ( fgets(buffer, sizeof(buffer) , fp) != NULL) {
@@ -364,6 +406,10 @@ int command_assemble(Symbol_table *symbolTable, char *command){
 	return 1;
 }
 
+int obj_byte(file *fp, Symbol_table *symbolTable, line_inform *line_info ){
+    if ( line_info->operhand[0] == '')
+}
+
 int assembler_pass2(char *filename, Symbol_table *symbolTable, int length,
 		Pass1 *Pinfo, line_inform *line_info){
 	FILE *fp, *lstfp , *objfp;
@@ -377,6 +423,7 @@ int assembler_pass2(char *filename, Symbol_table *symbolTable, int length,
 	int n, i, x, b, p , e;
     Hash *hashTable = symbolTable->hashTable;
     symbolPtr  sptr;
+    Hnode hashptr;
 	strcpy(lstname, filename);
 	strcat(lstname, ".lst");
 	strcpy(objname, filename);
@@ -404,37 +451,45 @@ int assembler_pass2(char *filename, Symbol_table *symbolTable, int length,
 			fprintf(lstfp,"\t%s",buffer);
 			continue;
 		}
-        
+
         else if ( ( sptr = symbol_find(symbolTable, line_info[idx].symbol) ) != NULL ){ //  label이 있는 경우
-            symbol_address = sptr->address - line_info[idx].location;
-            if ( symbol_address)
+            symbol_address = sptr->address - line_info[idx].location - 3;
+            if ( -2048 <= symbol_address && symbol_address <= 2047 ){
+                p = 1;
+                if ( symbol_address < 0)
+                    symbol_address = symbol_address & 0x00000FFF;
 
-
-        }
-  
-
-        else{
-
+                hashptr = opcode_find(hashTable, line_info[idx].symbol);
+                line_info[idx].obj_code = make_objcode(hashptr->n_opcode, n, i, x, b, p, e, symbol_address); 
+            }
         }
 
 		else if(get_asmd(line_info[idx].asmd) == base ||
-                get_asmd(line_info[idx].asmd) == end) {				//base나 end인 경우
-			if(get_asmd(line_info[idx].asmd) == base) {								//base인 경우
+                    get_asmd(line_info[idx].asmd) == end) {				//base나 end인 경우
+
+            if(get_asmd(line_info[idx].asmd) == base) {								//base인 경우
 				if ( ( sptr = symbol_find(symbolTable, line_info[idx].operhand)) != NULL)
 					Pinfo->base_address = line_info[idx].location;
-				
                 else {
 					printf("Error in base\n");
 					error = 1;
 					continue;
 				}
 			}
-			else if(get_asmd(line_info[idx].asmd) == end)						//end인 경우
-				e_flag = 1;
-			fprintf(lstfp,"\t\t%-10s\t%-10s\n",line_info[idx].asmd,line_info[idx].operhand);
+
+			else
+                e_flag = 1;
+
+            fprintf(lstfp,"\t\t%-10s\t%-10s\n",
+                    line_info[idx].asmd,line_info[idx].operhand);
 			continue;
 		}
 		fprintf(lstfp,"%04X\t",line_info[idx].location);								//주소 출력
+
+        if ( line_info[idx].label_flag )
+            fprintf(lstfp, "%s\t", line_info[idx].symbol);
+        else
+            fprintf(lstfp, "\t");
 
 		if(opcode_find(hashTable, line_info[idx].opcode) == NULL &&
 				opcode_find(hashTable, (line_info[idx].opcode)+1) == NULL &&
@@ -461,12 +516,7 @@ int assembler_pass2(char *filename, Symbol_table *symbolTable, int length,
                 */
 				continue;
 			}
-			else if(type == 1) {										//end인 경우		
-			}
-			else if(type == 2) {										//base인 경우	
-			}
 			else if(type == 3) {										//byte인 경우
-                
 				if(asmd_char[0] == 'C' || asmd_char[0] == 'c') {					//character인 경우
 					if(strstr(asmd_char,"'") == NULL) {						//에러 처리
 						printf("ERROR in BYTE\n");
