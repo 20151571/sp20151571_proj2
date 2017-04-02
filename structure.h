@@ -58,6 +58,8 @@ typedef struct{
     int location;
     int format; // format 0 : 주석
     int label_flag;
+    int n_flag;
+    int modi_flag;
     int obj_code;
     char asmd[30];
     char opcode[30];
@@ -66,5 +68,10 @@ typedef struct{
     char obj_strcode[30];
     char comment[100];
 }line_inform;
+
+typedef struct{
+    int start;
+    int size;
+}object_inform;
 
 #endif

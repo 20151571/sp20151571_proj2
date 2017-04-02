@@ -62,7 +62,7 @@ void symbol_insert(Symbol_table *Stable, char *string, int address){
 		Stable->table[key] = ptr;
 }
 
-int find_register(char *string){
+int get_register(char *string){
 
 	for ( size_t i=0; i < strlen(string); ++i )
 		string[i] = ( string[i] >= 'a' && string[i] <= 'z') ?
@@ -406,8 +406,270 @@ int command_assemble(Symbol_table *symbolTable, char *command){
 	return 1;
 }
 
-int obj_byte(file *fp, Symbol_table *symbolTable, line_inform *line_info ){
-    if ( line_info->operhand[0] == '')
+int obj_byte(FILE *fp, Symbol_table *symbolTable,
+        line_inform *line_info, object_inform *obj_info,
+       int *obj_flag, int *idx){
+    char c = line_info->operhand[0];
+    char copy[30];
+    char tmp[5];
+    char *error = NULL;
+    int len = 0;
+    strcpy(copy, line_info->operhand);
+    c = ( 'A' <= c && c <= 'Z') ? c : c - 'a' + 'A';
+    if ( c == 'C'){
+        if ( strstr(copy, "'") == NULL){
+            printf("Error in byte\n");
+            return -1;
+        }
+
+        line_info->obj_code = -2;
+
+        if ( strlen(copy + 2) > 31 ){
+            printf("Error in byte length\n");
+            return -1;
+        }
+
+        for ( int i = 2; copy[i] != 39 || copy[i] != '\0'; ++i){
+            fprintf(fp, "%02X",(int)copy[i]);
+            sprintf(tmp, "%02X", (int)copy[i]);
+            strcat(line_info->obj_strcode, tmp);
+            len++;
+        }
+        fprintf(fp, "\n");
+    }
+
+    else if( c == 'X'){
+        strtol(copy + 2, &error , 16);
+        if ( strstr(copy, "'") == NULL || *error != 39){
+            printf("Error in byte\n");
+            return -1;
+        }
+
+        for ( int i = 2; copy[i] != 39 || copy[i] != '\0'; ++i ){
+            len = i - 1;
+            if( i >= 62){
+                printf("Error in byte");
+                return -1;
+            }
+        }
+
+        len /= 2;
+        fprintf(fp, "%s\n", copy);
+        if(obj_info[*idx].size + len <= 30)
+            obj_info[*idx].size += len;
+        else{
+            obj_info[++(*idx)].size += len;
+            obj_info[*idx].start = line_info->location;
+        }
+        line_info->obj_code = -2;
+        
+    }
+
+    else{
+        printf("Error in byte\n");
+        return -1;
+    }
+
+    if(*obj_flag == 1){
+        obj_info[++(*idx)].start = line_info->location;
+        *obj_flag = 0;
+    }
+
+    if ( obj_info[*idx].size + len <= 30)
+        obj_info[*idx].size += len;
+    
+    else{
+        obj_info[(*idx)].size += len;
+        obj_info[*idx].start = line_info->location;
+        line_info->n_flag = 1;
+    }
+    return 1;
+}
+
+int obj_opcode(FILE *fp, Hash *hashTable, Symbol_table *symbolTable,
+        line_inform *line_info, object_inform *obj_info,
+        int *obj_idx, int *obj_flag, int *arr) {
+
+    Hnode hashptr;
+    symbolPtr sptr;
+    char tmp1[50] , tmp2[50], tmp3[50];
+    char *error;
+    int regi_num;
+    int symbol_num;
+    int immediate;
+    int format = line_info->format;
+    fprintf(fp,"%-10s\t%-10s\t",line_info->opcode,line_info->operhand);
+
+    hashptr = opcode_find(hashTable, line_info->opcode);
+
+    if(format == 1) { //format 1인 경우
+        fprintf(fp,"\n");
+        line_info->obj_code = (int)strtol(line_info->operhand,NULL,16);
+    }
+
+    else if ( format == 2) { //format 2인 경우
+        sprintf(tmp1,"%X",hashptr->n_opcode);
+        strcpy(tmp2,line_info->operhand);
+
+        if(strstr(tmp2,",") != NULL) {// ','가 있는 경우
+            regi_num = get_register(strtok(tmp2,","));
+            sprintf(tmp3,"%d", regi_num);
+            if(regi_num == -1) {
+                printf("ERROR in format 2\n");
+                return -1;
+            }
+            strcat(tmp1, tmp3);
+
+            regi_num = get_register(strtok(NULL,","));
+            sprintf(tmp3,"%d",regi_num);
+            if(regi_num == -1) {
+                printf("ERROR in format 2\n");
+                return -1;
+            }
+            strcat(tmp1,tmp3);
+
+            fprintf(fp,"%s\n",tmp1);
+            line_info->obj_code = (int)strtol(tmp1,NULL,16);
+        }
+
+        else {											//인자가 하나인 경우
+            regi_num = get_register(tmp2);
+            sprintf(tmp3,"%d",regi_num);
+            if(regi_num == -1) {
+                printf("ERROR in format 2\n");
+                return -1;
+            }
+            strcat(tmp1,tmp3);
+            strcat(tmp1,"0");
+            fprintf(fp,"%s\n",tmp1);
+            line_info->obj_code = (int)strtol(tmp1,NULL,16);
+        }
+    }
+
+    else if ( format == 3 ) { //format 3인 경우
+        if(strcmp(line_info->opcode,"RSUB") == 0) {	//RSUB
+            fprintf(fp,"4F0000\n");
+            line_info->obj_code = 0x4F0000;
+        }
+ 
+        else {
+            strcpy(tmp1, line_info->operhand);
+            if(strstr(tmp1,",")!=NULL) {	//x를 담당
+                if(strstr(tmp1,"X") != NULL || strstr(tmp1,"x") != NULL) {
+                    arr[2] = 1; // x
+                    strtok(tmp1,",");
+                }
+                else {
+                    printf("Error in format 3\n");
+                    return -1;
+                }
+            }
+
+            if(hash_remove(tmp1,&arr[0],&arr[1],symbolTable) == -1) {					//#, @ 및 n, i를 담당
+                printf("ERROR in immediate or indirect addressing\n");
+                return -1;
+            }
+
+            if( ( sptr = symbol_find(symbolTable, tmp1)) != NULL) {					//operhand가 symbol인 경우
+                symbol_num = sptr->address;
+                if(symbol_num - line_info->location - 3 >= -2048 && symbol_num - line_info->location - 3 <= 2047) {
+                    arr[4] = 1; // p
+                    symbol_num = symbol_num - line_info->location - 3;		//pc 가능 범위에 있으면 pc
+                    if(symbol_num < 0) 
+                        symbol_num = symbol_num & 0x00000FFF;
+                }
+                else if(symbol_num - base >= 0 && symbol_num - base <=4095) {
+                    arr[3] = 1; // b
+                    symbol_num = symbol_num - base;
+                }
+                else { //둘 다 아니면 에러
+                    printf("ERROR in range\n");
+                    return -1;
+                }
+
+                line_info->obj_code = get_objcode(hashptr->n_opcode,arr[0], arr[1], arr[2],
+                        arr[3],arr[4],arr[5],symbol_num);
+                fprintf(fp,"%06X\n",line_info->obj_code);
+            }
+            else { //immediate인 경우
+                immediate = (int)strtol(tmp1, &error, 10);
+                if ( error != NULL ) { //10진수가 아니면
+                    printf("Error in format 3\n");
+                    return -1;
+                }
+
+                if ( immediate > 0x1000 ) {
+                    printf("Error in immediate\n");
+                    return -1;
+                }
+
+                line_info->obj_code = get_objcode(hashptr->n_opcode,arr[0], arr[1], arr[2],
+                        arr[3],arr[4],arr[5],symbol_num);
+                fprintf(fp,"%06X\n",line_info->obj_code);
+            }
+
+        }
+    }
+
+    else if ( format == 4 ) {								//format 4인 경우
+        arr[5] = 1;
+        strcpy(tmp2, line_info->operhand);
+        strcpy(tmp3, line_info->opcode);
+        strcpy(tmp3, tmp3+1);
+        if(strstr(tmp2,",")!=NULL) {
+            if(strstr(tmp2,"X") != NULL || strstr(tmp2,"x")) {
+                arr[2] = 1;
+                strtok(tmp2,",");
+            }
+            else {
+                printf("ERROR in format 4\n");
+                return 1;
+            }
+        }
+
+        if(hash_remove(tmp2, &n,&ia,s_table) == -1) {
+            printf("ERROR in immediate or indirect addressing\n");
+            return 1;
+        }
+
+        sptr = symbol_find(symbolTable, tmp2);
+        if(sptr != NULL) {									//operhand가 symbol인 경우
+            line_info->obj_code = get_objcode(hashptr->n_opcode,arr[0], arr[1], arr[2],
+                    arr[3],arr[4],arr[5],symbol_num);
+            fprintf(fp,"%06X\n",line_info->obj_code);
+            line_info->modi_flag = 1;
+        }
+        else { //immediate인 경우
+            symbol_num = (int)strtol(tmp2,&error,10);
+            if(error != NULL) {						//10진수가 아니면
+                printf("Error in immediate\n");					//에러 처리
+                return -1;
+            }
+
+            if(symbol_num>0x1000) {
+                printf("ERROR in format 4\n");
+                return -1;
+            }
+            line_info->obj_code = get_objcode(hashptr->n_opcode,arr[0], arr[1], arr[2],
+                    arr[3],arr[4],arr[5],symbol_num);
+            fprintf(fp,"%06X\n",line_info->obj_code);
+        }
+    }
+
+    if(*obj_flag == 1) {
+        obj_info[++(*obj_idx)].start = line_info->location;
+        *obj_flag = 0;
+    }
+
+    if(obj_info[*obj_idx].size + format <= 30)
+        obj_info[*obj_idx].size += format;
+
+    else {
+        obj_info[++(*obj_idx)].size += format;
+        obj_info[*obj_idx].start = line_info->location;
+        line_info->n_flag = 1;
+    }
+    return 0;
 }
 
 int assembler_pass2(char *filename, Symbol_table *symbolTable, int length,
@@ -417,13 +679,15 @@ int assembler_pass2(char *filename, Symbol_table *symbolTable, int length,
 	char objname[30];
 	char buffer[256];
 	char copy[256];
-	int linenum  = 0, type, symbol_address;
+    char *errorp;
+	int linenum  = 0, type, symbol_address, num;
 	size_t idx = 0;
-	int e_flag = 0, error = 0;
+	int end_flag = 0, error = 0, obj_flag = 0, obj_idx = 0;
 	int n, i, x, b, p , e;
     Hash *hashTable = symbolTable->hashTable;
     symbolPtr  sptr;
     Hnode hashptr;
+    object_inform obj_info[300];
 	strcpy(lstname, filename);
 	strcat(lstname, ".lst");
 	strcpy(objname, filename);
@@ -478,7 +742,7 @@ int assembler_pass2(char *filename, Symbol_table *symbolTable, int length,
 			}
 
 			else
-                e_flag = 1;
+                end_flag = 1;
 
             fprintf(lstfp,"\t\t%-10s\t%-10s\n",
                     line_info[idx].asmd,line_info[idx].operhand);
@@ -504,407 +768,88 @@ int assembler_pass2(char *filename, Symbol_table *symbolTable, int length,
 		else 
 			fprintf(lstfp,"\t");
 
-		if(get_asmd(line_info[idx].asmd) != -1) {									//asmd가 있는 경우
+		if(get_asmd(line_info[idx].asmd) != -1) {			//asmd가 있는 경우
 			fprintf(lstfp,"%-10s\t%-10s\t",line_info[idx].asmd,line_info[idx].operhand);				//asmd 출력
 			type = get_asmd(line_info[idx].asmd);
-			if(type == 0) {											//start인 경우
+			if(type == 0) { //start인 경우
 				line_info[idx].obj_code = -1;
 				fprintf(lstfp,"\n");
-                /*
-				obj_info[i].start = line_info[idx].location;						//오브젝트 파일 시작 주소
-				start_line = idx;
-                */
+				obj_info[obj_idx].start = line_info[idx].location;	//오브젝트 파일 시작 주소
+				// start_line = idx;
 				continue;
 			}
-			else if(type == 3) {										//byte인 경우
-				if(asmd_char[0] == 'C' || asmd_char[0] == 'c') {					//character인 경우
-					if(strstr(asmd_char,"'") == NULL) {						//에러 처리
-						printf("ERROR in BYTE\n");
-						error = 1;
-						continue;
-					}
-
-					line_info[idx].obj_code = -2;							//obj code를 문자열로 저장
-					strcpy(line_info[idx].obj_scode,"");
-					if(strlen(asmd_char+2)>31) {
-						printf("ERROR in BYTE long\n");
-						error = 1;
-						continue;
-					}
-
-					for(j=2; ((asmd_char[j]!=39||asmd_char[j+1]!='\0') && s<=29);j++) {
-						fprintf(lstfp,"%02X",(int)asmd_char[j]);
-						sprintf(t_char1,"%02X",(int)asmd_char[j]);
-						strcat(line_info[idx].obj_scode,t_char1);
-						s++;
-					}
-					fprintf(lstfp,"\n");
-					if(obj_flag == 1) {															
-						i++;															
-						obj_info[i].start = line_info[idx].location;						
-						obj_flag = 0;
-					}
-					if(obj_info[i].size + s <= 30) {						//오브젝트 파일 출력을
-						obj_info[i].size += s;							//하기 위해서 설정하는 부분
-					}										//길이를 담당하는 부분
-					else {										//아래에도 같은 코드 반복
-						i++;
-						obj_info[i].size += s;
-						obj_info[i].start = line_info[idx].location;
-						line_info[idx].n_flag = 1;
-					}
-					continue;
-
-				}
-				else if(asmd_char[0] == 'X' || asmd_char[0] =='x') {					//hex인 경우
-					if(strstr(asmd_char,"'") == NULL) {
-						printf("ERROR in BYTE\n");
-						error = 1;
-						continue;
-					}
-
-					strcpy(t_char2,asmd_char);
-					asmd_charp = strtok(t_char2+2,"'");
-					if(str_determinent(asmd_charp,16) == -1) {					//16진수인지 확인
-						printf("ERROR in BYTE\n");
-						error = 1;
-						continue;
-					}
-					line_info[idx].obj_code = -2;							//obj code를 문자열로 저장
-					strcpy(line_info[idx].obj_scode,asmd_charp);
-					if(strlen(asmd_charp)%2 != 0) {
-						printf("ERROR in BYTE\n");
-						error = 1;
-						continue;
-					}
-					if(strlen(asmd_charp) > 60) {
-						printf("ERROR in BYTE");
-						error = 1;
-						continue;
-					}
-					s = strlen(asmd_charp)/2;
-
-					fprintf(lstfp,"%s\n",asmd_charp);
-					if(obj_flag == 1) {
-						i++;
-						obj_info[i].start = line_info[idx]].location;
-						obj_flag = 0;
-					}
-					if(obj_info[i].size + s <= 30) {
-						obj_info[i].size += s;
-					}
-					else {
-						i++;
-						obj_info[i].size += s;
-						obj_info[i].start = line_info[idx].location;
-						line_info[idx].n_flag = 1;
-					}
-
-					continue;
-				}
-				else {
-					printf("ERROR in BYTE\n");
-					error = 1;
-					continue;
-				}
+			else if(type == 3) { //byte인 경우
+			    error = obj_byte(lstfp, symbolTable, line_info, obj_info, &obj_flag, &obj_idx);
+                if ( error )
+                    continue;
 			}
-			else if(key == 4) {										//word인 경우
-				if(str_determinent(line_info[idx].operhand,10) == -1) {
+			else if(type == 4){ //word인 경우
+                num = strtol(line_info[idx].operhand, &errorp, 10);
+				if(errorp != NULL) {
 					printf("ERROR in WORD\n");
 					error = 1;
 					continue;
 				}
-
-				strcpy(asmd_char,line_info[idx].operhand);
-				line_info[idx].obj_code = (int)strtol(asmd_char,NULL,10);					//10진수인지 확인
-				if(line_info[idx].obj_code < 0) {
-					line_info[idx].obj_code = line_info[idx].obj_code & 0x00FFFFFF;
-				}
+				line_info[idx].obj_code = num;
+				
+                if(line_info[idx].obj_code < 0)
+					line_info[idx].obj_code &= 0x00FFFFFF;
 				fprintf(lstfp,"%06X\n",line_info[idx].obj_code);
-				if(obj_flag == 1) {
-					i++;
-					obj_info[i].start = line_info[idx].location;
-					obj_flag = 0;
-				}	
 
-				if(obj_info[i].size + 3 <= 30) {
-					obj_info[i].size += 3;
-				}
+				if(obj_flag == 1) {
+					obj_info[++obj_idx].start = line_info[idx].location;
+					obj_flag = 0;
+                }
+
+				if(obj_info[i].size + 3 <= 30)
+					obj_info[obj_idx].size += 3;
+
 				else {
-					i++;
-					obj_info[i].size += 3;
-					obj_info[i].start= line_info[idx].location;
+					obj_info[++obj_idx].size += 3;
+					obj_info[obj_idx].start= line_info[idx].location;
 					line_info[idx].n_flag = 1;
 				}
 			}
-			else if(type == 5) {										//resb인 경우
-				if(str_determinent(line_info[idx].operhand,10) == -1) {
-					printf("ERROR in RESB\n");
-					error = 1;
-					continue;
-				}
-				fprintf(lstfp,"\n");
-				line_info[idx].n_flag = 1;
-				obj_flag = 1;
-			}
-			else if(type == 6) {										//resw인 경우
-				if(str_determinent(line_info[idx].operhand,10) == -1) {
-					printf("ERROR in RESW\n");
-					error = 1;
-					continue;
+			else if(type == 5) { //resb인 경우
+                num = strtol(line_info[idx].operhand, &errorp, 10);
+                if(errorp != NULL) {
+                    printf("ERROR in WORD\n");
+                    error = 1;
+                    continue;
 				}
 				fprintf(lstfp,"\n");
 				line_info[idx].n_flag = 1;
 				obj_flag = 1;
 			}
 
-		}
-		else {													//opcode인 경우
-			fprintf(lstfp,"%-10s\t%-10s\t",line_info[idx].opcode,line_info[idx].operhand);
-			if(line_info[idx].format == 1) {									//format 1인 경우
+			else if(type == 6) { //resw인 경우
+                num = strtol(line_info[idx].operhand, &errorp, 10);
+                if(errorp != NULL) {
+                    printf("ERROR in WORD\n");
+                    error = 1;
+                    continue;
+                }
 				fprintf(lstfp,"\n");
-				t_opcode = optext_search2(line_info[idx].opcode, h_table);
-				line_info[idx].obj_code = strtol(line_info[idx].operhand,NULL,16);
-
-				if(obj_flag == 1) {
-					i++;
-					obj_info[i].start = line_info[idx].location;
-					obj_flag = 0;
-				}
-				if(obj_info[i].size + 1 <= 30) {
-					obj_info[i].size += 1;
-				}
-				else {
-					i++;
-					obj_info[i].size += 1;
-					obj_info[i].start = line_info[idx].location;
-					line_info[idx].n_flag = 1;
-				}
-			}
-			else if(line_info[idx].format == 2) {								//format 2인 경우
-				t_opcode = optext_search2(line_info[idx].opcode,h_table);
-				sprintf(t_char1,"%X",t_opcode->opcode);
-				strcpy(t_char2,line_info[idx].operhand);
-
-				if(strstr(t_char2,",") != NULL) {							// ','가 있는 경우
-					register_int = find_register1(strtok(t_char2,","));				//그러니까 인자가 두 개인 경우
-
-
-					sprintf(t_char3,"%d",register_int);
-					if(register_int == -1) {
-						printf("ERROR in format 2\n");
-						error = 1;
-						continue;
-					}
-					strcat(t_char1,t_char3);
-
-					register_int = find_register1(strtok(NULL,","));
-					sprintf(t_char3,"%d",register_int);
-					if(register_int == -1) {
-						printf("ERROR in format 2\n");
-						error = 1;
-						continue;
-					}
-					strcat(t_char1,t_char3);
-
-					fprintf(lstfp,"%s\n",t_char1);
-					line_info[idx].obj_code = (int)strtol(t_char1,NULL,16);
-				}
-				else {											//인자가 하나인 경우
-					register_int = find_register1(t_char2);
-					sprintf(t_char3,"%d",register_int);
-					if(register_int == -1) {
-						printf("ERROR in format 2\n");
-						error = 1;
-						continue;
-					}
-					strcat(t_char1,t_char3);
-					strcat(t_char1,"0");
-					fprintf(lstfp,"%s\n",t_char1);
-					line_info[idx].obj_code = (int)strtol(t_char1,NULL,16);
-				}
-
-				if(obj_flag == 1) {
-					i++;
-					obj_info[i].start = line_info[idx].location;
-					obj_flag = 0;
-				}
-				if(obj_info[i].size + 2 <= 30) {
-					obj_info[i].size += 2;
-				}
-				else {
-					i++;
-					obj_info[i].size += 2;
-					obj_info[i].start = line_info[idx].location;
-					line_info[idx].n_flag = 1;
-				}
-			}
-			else if(line_info[idx].format == 3) {								//format 3인 경우
-				t_opcode = optext_search2(line_info[idx].opcode,h_table);
-				if(strcmp(line_info[idx].opcode,"RSUB") == 0) {						//RSUB은 특별하다
-					fprintf(lstfp,"4F0000\n");
-					line_info[idx].obj_code = 0x4F0000;
-				}
-				else {
-					strcpy(t_char1, line_info[idx].operhand);
-
-					if(strstr(t_char1,",")!=NULL) {							//x를 담당
-						if(strstr(t_char1,"X") != NULL || strstr(t_char1,"x") != NULL) {
-							x = 1;
-							strtok(t_char1,",");
-						}
-						else {
-							printf("ERROR in format 3\n");
-							error = 1;
-							continue;
-						}
-					}
-
-					if(hash_remove(t_char1,&n,&ia,s_table) == -1) {					//#, @ 및 n, i를 담당
-						printf("ERROR in immediate or indirect addressing\n");
-						error = 1;
-						continue;						
-					}
-
-					if(symbol_search(s_table,t_char1) != NULL) {					//operhand가 symbol인 경우
-						symbol_int = symbol_search(s_table,t_char1)->location;
-						if(symbol_int - line_info[idx].location - 3 >= -2048 && symbol_int - line_info[k].location - 3 <= 2047) {
-							p = 1;
-							symbol_int = symbol_int - line_info[idx].location - 3;		//pc 가능 범위에 있으면 pc
-							if(symbol_int < 0) 
-								symbol_int = symbol_int & 0x00000FFF;
-							t_opcode = optext_search2(line_info[idx].opcode,h_table);
-							line_info[idx].obj_code = solve_objcode(t_opcode->opcode,n,ia,x,b,p,e,symbol_int);
-							fprintf(lstfp,"%06X\n",line_info[k].obj_code);
-						}
-						else if(symbol_int - base >= 0 && symbol_int - base <=4095) {
-							b = 1;
-							symbol_int = symbol_int - base;					//그 외에 base 가능 범위에 있으면 base
-							t_opcode = optext_search2(line_info[idx].opcode,h_table);
-							line_info[idx].obj_code = solve_objcode(t_opcode->opcode,n,ia,x,b,p,e,symbol_int);
-							fprintf(lstfp,"%06X\n",line_info[idx].obj_code);
-						}
-						else {									//둘 다 아니면 에러
-							printf("ERROR in range\n");
-							error = 1;
-							continue;
-						}
-					}
-					else {										//immediate인 경우
-						if(str_determinent(t_char1,10) == -1) {					//10진수가 아니면
-							printf("ERROR in format 3\n");					//에러 처리
-							error = 1;
-							continue;
-						}						
-
-						imme_int = strtol(t_char1,NULL,10);
-						if(imme_int>0x1000) {
-							printf("ERROR in immediate\n");
-							error = 1;
-							continue;
-						}
-
-						t_opcode = optext_search2(line_info[idx].opcode,h_table);
-						line_info[idx].obj_code = solve_objcode(t_opcode->opcode,n,ia,x,b,p,e,imme_int);
-						fprintf(lstfp,"%06X\n",line_info[k].obj_code);
-					}
-
-				}
-
-				if(obj_flag == 1) {
-					i++;
-					obj_info[i].start = line_info[idx].location;
-					obj_flag = 0;
-				}
-				if(obj_info[i].size + 3 <= 30) {
-					obj_info[i].size += 3;
-				}
-				else {
-					i++;
-					obj_info[i].size += 3;
-					obj_info[i].start = line_info[k].location;
-					line_info[idx].n_flag = 1;
-				}
-
-			}
-			else if(line_info[idx].format == 4) {								//format 4인 경우
-				e = 1;
-				strcpy(t_char2,line_info[idx].operhand);
-				strcpy(t_char3,line_info[idx].opcode);
-				strcpy(t_char3,t_char3+1);
-				if(strstr(t_char2,",")!=NULL) {
-					if(strstr(t_char2,"X") != NULL || strstr(t_char2,"x")) {
-						x = 1;
-						strtok(t_char2,",");
-					}
-					else {
-						printf("ERROR in format 4\n");
-						error = 1;
-						continue;
-					}
-				}
-
-				if(hash_remove(t_char2,&n,&ia,s_table) == -1) {
-					printf("ERROR in immediate or indirect addressing\n");
-					error = 1;
-					continue;						
-				}
-
-				t_symbol = symbol_search(s_table,t_char2);
-				if(t_symbol != NULL) {									//operhand가 symbol인 경우
-					t_opcode = optext_search2(t_char3,h_table);
-					line_info[idx].obj_code = solve_objcode(t_opcode->opcode,n,ia,x,b,p,e,t_symbol->location);
-					fprintf(lstfp,"%06X\n",line_info[k].obj_code);
-					line_info[idx].m_flag = 1;
-				}
-				else {											//immediate인 경우
-					if(str_determinent(t_char2,10) == -1) {						//10진수가 아니면
-						printf("ERROR in immediate\n");					//에러 처리
-						error = 1;
-						continue;
-					}
-					symbol_int = strtol(t_char2,NULL,10);
-
-					if(symbol_int>0x1000) {
-						printf("ERROR in format 4\n");
-						error = 1;
-						continue;
-					}
-
-					t_opcode = optext_search2(t_char3,h_table);
-					line_info[idx].obj_code = solve_objcode(t_opcode->opcode,n,ia,x,b,p,e,symbol_int);
-					fprintf(lstfp,"%06X\n",line_info[idx].obj_code);
-
-				}
-
-				if(obj_flag == 1) {
-					i++;
-					obj_info[i].start = line_info[idx].location;
-					obj_flag = 0;
-				}
-
-				if(obj_info[i].size + 4 <= 30) {
-					obj_info[i].size += 4;
-				}
-				else {
-					i++;
-					obj_info[i].size += 4;
-					obj_info[i].start = line_info[idx].location;
-					line_info[idx].n_flag = 1;
-				}
+				line_info[idx].n_flag = 1;
+				obj_flag = 1;
 			}
 		}
-		if(error == 1) {											//error
-			printf("**************** ERROR2 LINE ****************\n");
+		else //opcode 인 경우
+            error = obj_opcode(lstfp, hashTable, symbolTable, &line_info[idx],
+                        obj_info,&obj_idx, &obj_flag);
+        
+        if(error == 1) {											//error
+            printf("**************** ERROR2 LINE ****************\n");
 			printf("line : %d : %s",linenum, copy);
 			printf("********************************************\n");
 			remove(lstname);
 			remove(objname);
 			return -1;
 		}
+        idx++;
 	}
-	idx++;
-	if ( !e_flag){
+
+	if ( !end_flag){
 
 		return -1;
 	}
