@@ -92,7 +92,6 @@ int get_asmd(char *string) {
 	for ( size_t i=0; i < strlen(string); ++i )
 		string[i] = ( string[i] >= 'a' && string[i] <= 'z') ?
 			string[i] -'a' + 'A' : string[i];
-
 	if ( strcmp(string,"START") == 0 )
 		return start;
 	else if(strcmp(string,"END") == 0)
@@ -330,6 +329,8 @@ int make_line(char *string, int type, size_t idx, int *flag,
 		if ( opcode_process(Pinfo, Stable->hashTable,
 				Pinfo->argu, &line_info[idx]) == - 1)
             return -1;
+
+        strcpy ( line_info[idx].opcode , Pinfo->argu[0] );
     }
 
 	else if ( type == asmd){ // assembly directives
@@ -345,10 +346,12 @@ int make_line(char *string, int type, size_t idx, int *flag,
 		if( *error != '\0' ) // 16진수에 에러 있는 경우
 			return -1;
 		Pinfo->program_len = Pinfo->location;
+        strcpy(line_info[idx].asmd, "START");
 		strncpy(line_info[idx].symbol, Pinfo->argu[0], sizeof(line_info[idx].symbol));// start symbol
 	}
 
 	else if ( type == pass1_end ){ // end인 경우
+        strcpy( line_info[idx].asmd, Pinfo->argu[0] );
 		Pinfo->program_len = Pinfo->location - Pinfo->program_len;
         return 0;
     }
@@ -370,6 +373,7 @@ int make_line(char *string, int type, size_t idx, int *flag,
 			if ( opcode_process(Pinfo, Stable->hashTable,
 					&(Pinfo->argu[1]), &line_info[idx]) == -1 )
                 return -1;
+            strcpy( line_info[idx].opcode, Pinfo->argu[1]);
         }
 		else if ( label_type == asmd){
 			strcpy(line_info[idx].asmd, Pinfo->argu[0]);
@@ -773,44 +777,47 @@ int assembler_pass2(char *filename, Symbol_table *symbolTable, int length,
 		} 
 
 		n = 0, i = 0, x = 0, b = 0, p = 0, e = 0;
-
+		
+        if ( buffer[strlen(buffer) - 1] == '\n')
+			buffer[strlen(buffer) - 1] = '\0';
+	
         strtok(buffer, "\n\r\0");
         len = strlen(buffer);
         if ( len == 0)
 			continue;
 
-		if ( buffer[strlen(buffer) - 1] == '\n')
-			buffer[strlen(buffer) - 1] = '\0';
 		linenum += 5;
+        printf("idx : %d\n", idx);
+        //printf("format : %d\n", line_info[idx].format);
+        //printf("line_info symbol : %s\n", line_info[idx].symbol);
 
-        printf("linenum : %d\nbuffer : %s\n", linenum, buffer);
-        printf("format : %d\n", line_info[idx].format);
-		
         fprintf(lstfp,"%-5d\t",linenum);
 		strcpy(copy, buffer);
-
-		if(line_info[idx].format == -1) { //comment인 경우
+		
+        if(line_info[idx].format == -1) { //comment인 경우
 			fprintf(lstfp,"\t%s",buffer);
+            idx++;
 			continue;
 		}
-
+    
         else if ( ( sptr = symbol_find(symbolTable, line_info[idx].symbol) ) != NULL ){ //  label이 있는 경우
+            printf("symbol_address : %d\n", sptr->address);
             symbol_address = sptr->address - line_info[idx].location - 3;
             if ( -2048 <= symbol_address && symbol_address <= 2047 ){
                 p = 1;
                 if ( symbol_address < 0)
                     symbol_address = symbol_address & 0x00000FFF;
-
+                
                 hashptr = opcode_find(hashTable, line_info[idx].symbol);
                 line_info[idx].obj_code = get_objcode(hashptr->n_opcode, n, i, x,
                         b, p, e, symbol_address);
+                line_info[idx].label_flag = 1;
             }
         }
 
 		else if(get_asmd(line_info[idx].asmd) == base ||
-                    get_asmd(line_info[idx].asmd) == end) {				//base나 end인 경우
-
-            if(get_asmd(line_info[idx].asmd) == base) {								//base인 경우
+                    get_asmd(line_info[idx].asmd) == end) {	//base나 end인 경우
+            if(get_asmd(line_info[idx].asmd) == base) {	//base인 경우
 				if ( ( sptr = symbol_find(symbolTable, line_info[idx].operhand)) != NULL)
 					Pinfo->base_address = line_info[idx].location;
                 else {
@@ -820,14 +827,17 @@ int assembler_pass2(char *filename, Symbol_table *symbolTable, int length,
 				}
 			}
 
-			else
+			else{
+                printf("END POINT!\n");
                 end_flag = 1;
+            }
 
             fprintf(lstfp,"\t\t%-10s\t%-10s\n",
                     line_info[idx].asmd,line_info[idx].operhand);
+            idx++;
 			continue;
 		}
-		fprintf(lstfp,"%04X\t",line_info[idx].location);								//주소 출력
+		fprintf(lstfp,"%04X\t",line_info[idx].location); //주소 출력
 
         if ( line_info[idx].label_flag )
             fprintf(lstfp, "%s\t", line_info[idx].symbol);
@@ -836,24 +846,25 @@ int assembler_pass2(char *filename, Symbol_table *symbolTable, int length,
 
 		if(opcode_find(hashTable, line_info[idx].opcode) == NULL &&
 				opcode_find(hashTable, (line_info[idx].opcode)+1) == NULL &&
-				get_asmd(line_info[idx].asmd) == -1) {								//opcode 및 asmd 둘 다 없는 경우
+				get_asmd(line_info[idx].asmd) == -1) {	//opcode 및 asmd 둘 다 없는 경우
 			printf("Error in opcode or symbol\n");
 			error = 1;
 			continue;
 		}
 
-		if(symbol_find(symbolTable,line_info[idx].symbol) != NULL)						//symbol 출력
+		if(symbol_find(symbolTable,line_info[idx].symbol) != NULL) //symbol 출력
 			fprintf(lstfp,"%s\t",line_info[idx].symbol);
 		else 
 			fprintf(lstfp,"\t");
 
-		if(get_asmd(line_info[idx].asmd) != -1) {			//asmd가 있는 경우
-			fprintf(lstfp,"%-10s\t%-10s\t",line_info[idx].asmd,line_info[idx].operhand);				//asmd 출력
+		if(get_asmd(line_info[idx].asmd) != -1) { //asmd가 있는 경우
+			fprintf(lstfp,"%-10s\t%-10s\t",line_info[idx].asmd,line_info[idx].operhand); //asmd 출력
 			type = get_asmd(line_info[idx].asmd);
 			if(type == 0) { //start인 경우
 				line_info[idx].obj_code = -1;
 				fprintf(lstfp,"\n");
 				obj_info[obj_idx].start = line_info[idx].location;	//오브젝트 파일 시작 주소
+                idx++;
 				// start_line = idx;
 				continue;
 			}
@@ -918,8 +929,8 @@ int assembler_pass2(char *filename, Symbol_table *symbolTable, int length,
             error = obj_opcode(lstfp, hashTable, symbolTable, &line_info[idx],
                         obj_info,&obj_idx, &obj_flag, arr);
         }
-        fprintf(lstfp, "\n");
         idx++;
+        fprintf(lstfp, "\n");
 	}
 
 	if ( !end_flag && !error){
