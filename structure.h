@@ -56,7 +56,7 @@ typedef struct{
 
 typedef struct{
     int location;
-    int format; // format 0 : 주석
+    int format; // format -1 : 주석
     int label_flag;
     int n_flag;
     int modi_flag;

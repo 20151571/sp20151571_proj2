@@ -1,0 +1,5 @@
+*.o
+*.obj
+*.lst
+*.out
+test
