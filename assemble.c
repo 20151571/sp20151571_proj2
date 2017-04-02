@@ -319,9 +319,10 @@ int make_line(char *string, int type, size_t idx, int *flag,
 	
 	char *error;
 	int label_type;
+    /*
 	printf ("make_line : %d\n", (int)idx);
     printf("argu1 : %s\nargu2 : %s\nargu3 : %s\n", Pinfo->argu[0], Pinfo->argu[1], Pinfo->argu[2]);
-
+    */
 	if ( type == comment ){ // comment 인 경우
 		line_info[idx].format = 0;
 		strncpy( line_info[idx].comment, string,
@@ -350,11 +351,15 @@ int make_line(char *string, int type, size_t idx, int *flag,
 		strncpy(line_info[idx].symbol, Pinfo->argu[0], sizeof(line_info[idx].symbol));// start symbol
 	}
 
-	else if ( type == pass1_end ) // end인 경우
+	else if ( type == pass1_end ){ // end인 경우
 		Pinfo->program_len = Pinfo->location - Pinfo->program_len;
+        return 0;
+    }
 
 	else if ( type == label ) {
-		if ( !symbol_find(Stable, line_info[idx].symbol) )
+        strcpy( line_info[idx].symbol , Pinfo->argu[0]);
+		
+        if ( !symbol_find(Stable, line_info[idx].symbol) )
 			symbol_insert(Stable, line_info[idx].symbol,
 					line_info[idx].location);
 		else
@@ -362,10 +367,10 @@ int make_line(char *string, int type, size_t idx, int *flag,
         line_info[idx].label_flag = 1;
 		label_type = get_type(Pinfo->argu[1], Stable->hashTable);
         
-		if ( label_type == opcode ) {
+
+		if ( label_type == opcode )
 			return opcode_process(Pinfo, Stable->hashTable,
 					&(Pinfo->argu[1]), &line_info[idx]);
-		}
 
 		else if ( label_type == asmd){
 			strcpy(line_info[idx].asmd, Pinfo->argu[0]);
@@ -373,8 +378,9 @@ int make_line(char *string, int type, size_t idx, int *flag,
 			Pinfo->location += asmd_process( Pinfo->argu, &line_info[idx], Pinfo->location);
 		}
 
-		else 
+		else
 			return -1;
+
 		strcpy( line_info[idx].symbol , Pinfo->argu[0]);
 		// line_info[idx].format = 0;
 		strcpy( line_info[idx].asmd, Pinfo->argu[1]);
@@ -382,7 +388,6 @@ int make_line(char *string, int type, size_t idx, int *flag,
 
 	else
 		return -1;
-    fprintf(stderr, "MAKE_LINE FINISHED\n");
 	*flag = 1;
 	return 1;
 }
@@ -413,34 +418,46 @@ int command_assemble(Symbol_table *symbolTable, char *command){
 	char copy[256];
 	char *argu[10];
 	char *filename;
+    char *ptr;
 	int type, len, flag = 0; // flag는 시작이 start인지 아닌지 check
 	size_t idx = 0;
 	line_inform line_info[200];
 	Pass1 Pinfo;
 	filename = strtok(command, " \t");
 	filename = strtok(NULL, " \t");
+    
+    ptr = strstr(filename, ".");
+    if ( ptr == NULL || strcmp( ptr, ".asm") != 0){
+        printf("please input assembly file\n");
+        return -1;
+    }
 
     fp = fopen(filename, "r");
+    if( fp == NULL){
+        printf("NO file error!\n");
+        return -1;
+    }
+
     for ( int i = 0; i < 200; ++i){
         line_info[i].label_flag = 0;
         line_info[i].location = 0;
     }
 
 	symbol_init(symbolTable);
-	// algorithm for pass1 of assembler 
+	// algorithm for pass1 of assembler
 	while ( fgets(buffer, sizeof(buffer) , fp) != NULL) {
-		len = strlen(buffer);
+		strtok(buffer, "\n\r\0");
+        len = strlen(buffer);
 		if ( len == 0)
 			continue;
 		if ( buffer[len - 1] == '\n')
 			buffer[len - 1] = '\0';
+        printf("len : %d\n", len);
 		strncpy ( copy , buffer, sizeof(copy) );
 		type = get_argu( copy , argu, symbolTable->hashTable);
 		Pinfo.argu = argu;
-		if ( make_line(copy, type, idx++, &flag, symbolTable, &Pinfo, line_info) == -1 ){
-		    printf("fuck\n");
+		if ( make_line(copy, type, idx++, &flag, symbolTable, &Pinfo, line_info) == -1 )
             return -1;
-        }
 	}
 	fclose(fp);
 	fprintf(stderr, "HI PASS1!\n");
@@ -897,6 +914,7 @@ int assembler_pass2(char *filename, Symbol_table *symbolTable, int length,
             error = obj_opcode(lstfp, hashTable, symbolTable, &line_info[idx],
                         obj_info,&obj_idx, &obj_flag, arr);
         }
+        fprintf(lstfp, "\n");
         idx++;
 	}
 

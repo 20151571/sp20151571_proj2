@@ -14,5 +14,5 @@ $(TARGET): $(OBJECTS)
 	$(CC) -c $< -o $@ $(CFLAGS)
 
 clean:
-	rm $(OBJECTS) $(TARGET)
+	rm $(OBJECTS) $(TARGET) *.obj *.lst
 
