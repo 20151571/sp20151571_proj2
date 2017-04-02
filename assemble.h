@@ -41,6 +41,8 @@ int asmd_process(char **, line_inform *line_info);
 int opcode_process(Pass1 *, Hash *, char **, line_inform *line_info);
 int make_line(char *string, int type, size_t idx, int *flag,
         Symbol_table *, Pass1 *Pinfo, line_inform *line_info);
+void make_objfile();
+int assembler_pass2(char *filename, Symbol_table *, int length, Pass1 *Pinfo, line_inform *line_info);
 void print_file(char *); // file 내용을 출력하는 함수
 
 #endif

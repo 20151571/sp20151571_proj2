@@ -248,6 +248,7 @@ int asmd_process(char **argu, line_inform *line_info){
 int make_line(char *string, int type, size_t idx, int *flag,
         Symbol_table *Stable, Pass1 *Pinfo, line_inform *line_info){
     char *error;
+    int label_type;
     if ( type == comment ){ // comment 인 경우
         line_info[idx].format = 0;
         strncpy( line_info[idx].comment, string,
@@ -256,7 +257,8 @@ int make_line(char *string, int type, size_t idx, int *flag,
     }
 
     else if ( type == opcode )
-        return opcode_process(Pinfo, Stable->hashTable, Pinfo->argu, &line_info[idx]);
+        return opcode_process(Pinfo, Stable->hashTable,
+                Pinfo->argu, &line_info[idx]);
 
     else if ( type == asmd){ // assembly directives
         strcpy(line_info[idx].asmd, Pinfo->argu[0]);
@@ -278,18 +280,37 @@ int make_line(char *string, int type, size_t idx, int *flag,
         Pinfo->program_len = Pinfo->location - Pinfo->program_len;
 
     else if ( type == label ) {
-        strcpy( line_info[idx].symbol , Pinfo->argu[0]);
-        // line_info[idx].format = 0;
-        strcpy( line_info[idx].asmd, Pinfo->argu[1]);
-        asmd_process ( &(Pinfo->argu[1]), &line_info[idx]);
         if ( !symbol_find(Stable, line_info[idx].symbol) )
             symbol_insert(Stable, line_info[idx].symbol,
                     line_info[idx].location);
         else
             return -1;
+        label_type = get_type(Pinfo->argu[1], Stable->hashTable);
+       
+        if(label_type == opcode){
+            return opcode_process(Pinfo, Stable->hashTable,
+                    &(Pinfo->argu[1]), &line_info[idx]);
+        }
+
+        else if ( label_type == asmd){
+            strcpy(line_info[idx].asmd, Pinfo->argu[0]);
+            line_info[idx].location = Pinfo->location;
+            Pinfo->location += asmd_process( Pinfo->argu, &line_info[idx]);
+        }
+
+        else 
+            return -1;
+        strcpy( line_info[idx].symbol , Pinfo->argu[0]);
+        // line_info[idx].format = 0;
+        strcpy( line_info[idx].asmd, Pinfo->argu[1]);
+        asmd_process ( &(Pinfo->argu[1]), &line_info[idx]);
     }
+
+    else
+        return -1;
+
     *flag = 1;
-    return -1;
+    return 1;
 }
 
 void print_file(char *filename){
@@ -321,13 +342,9 @@ int command_assemble(Symbol_table *symbolTable, char *command){
     Pass1 Pinfo;
     filename = strtok(command, " \t");
     filename = strtok(NULL, " \t");
-    fp = fopen(filename, "r" );
-    if ( fp == NULL ){
-        fprintf(stderr, "FILE OPEN ERROR\n");
-        return -1;
-    }
-
+   
     symbol_init(symbolTable);
+    // algorithm for pass1 of assembler 
     while ( fgets(buffer, sizeof(buffer) , fp) != NULL) {
         len = strlen(buffer);
         if ( len == 0)
@@ -340,8 +357,52 @@ int command_assemble(Symbol_table *symbolTable, char *command){
         if ( make_line(copy, type, idx++, &flag, symbolTable, &Pinfo, line_info) == -1 )
             return -1;
     }
+    fclose(fp);
+    assembler_pass2(filename, symbolTable, idx, &Pinfo, line_info);
 
     return 1;
+}
+
+int assembler_pass2(char *filename, Symbol_table *symbolTable, int length,
+       Pass1 *Pinfo, line_inform *line_info){
+    FILE *fp, *lstfp , *objfp;
+    char lstfname[30];
+    char objfname[30];
+    char buffer[256];
+    int linenum  = 5;
+    int n, i, x, b, p , e;
+    strcpy(lstfname, filename);
+    strcat(lstfname, ".lst");
+    strcpy(objfname, filename);
+    strcat(objfname, ".obj");
+    
+    fp = fopen(filename, "r");
+    lstfp = fopen(lstfname, "w");
+    objfp = fopen(objfname, "w");
+    if ( lstfp == NULL || objfp == NULL){
+        fprintf(stderr, "FILE OPEN ERROR!\n");
+        return -1;
+    }
+
+    while ( fgets(buffer, sizeof(buffer), fp) != NULL){
+        n = 0, i = 0, x = 0, b = 0, p = 0, e = 0;
+        
+    }
+
+    for ( int idx = 0; idx < length; ++i ){
+        fprintf(lstfp, "%-5d\t", linenum);
+        
+    }
+    make_objfile();
+    printf("\toutput file : [%s], [%s]\n", lstfname, objfname);
+    
+    fclose(lstfp);
+    fclose(objfp);
+    return 1;
+}
+
+void make_objfile(){
+
 }
 
 /* 현재 디렉토리에 있는 filename 파일을 읽어서 화면에 출력한다.
