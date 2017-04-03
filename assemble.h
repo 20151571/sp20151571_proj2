@@ -14,6 +14,7 @@ typedef enum{
     word, resb, resw
 }assem_directives;
 
+//register
 typedef enum{
     A, X, L, B , S ,
     T , F , PC, SW
@@ -23,13 +24,12 @@ typedef enum{
     comment, opcode, pass1_start, asmd, label, pass1_end
 }pass1_info;
 
-typedef int (*symbolFunc)(int, int);
 
 int symbol_cmp(void *, void *); // symbol compare function
-void print_symbol(symbol_info *, int );
+void print_symbol(symbol_info *, int ); // symbol print function
 void delete_whitespace(char *); // whitespace 제거해주는 함수
 int get_Stablekey(Symbol_table *, char *); // symbol_table에 넣을 string의 key를 구해주는 함수
-symbolPtr symbol_find(Symbol_table *, char *string);
+symbolPtr symbol_find(Symbol_table *, char *string); // symbol find funcition
 void symbol_insert(Symbol_table *, char *, int); // symbol_table insert fucntin
 void symbol_init(Symbol_table *); // symbol init
 Hnode opcode_find(Hash *, char *mnemonic); // opcode 찾는 함

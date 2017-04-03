@@ -26,11 +26,11 @@ void add_history(History *head, char *command); // history에 추가하는 함�
 
 int Hash_find(Hash *hashTable, char *); // hash에서 찾는 함수
 
-void get_opcode(Hash *hashTable);
+void get_opcode(Hash *hashTable); // opcode find function
 void Hash_insert(Hash *hashTable, int value, char *mnemonic, char *code); // hash에 insert하는 함수
 
 void sp1_init(History *, Shell_Memory *, Hash *); // 초기화
-void sp2_init(Symbol_table *);
+void sp2_init(Symbol_table *); // initialize function
 void command_reset(Shell_Memory *); // reset인 경우 처리해주는 함수
 
 void command_help(const char **help_list, int size); // helplist를 출력하는 함수
