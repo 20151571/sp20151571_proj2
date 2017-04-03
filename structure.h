@@ -1,5 +1,5 @@
 #ifndef __structure__
-#define __Structure__
+#define __structure__
 
 typedef struct LINKED_LIST * History;
 typedef struct LINKED_LIST * Lnode;

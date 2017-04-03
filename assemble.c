@@ -263,7 +263,7 @@ int opcode_process(Pass1 *Pinfo, Hash *hashTable, char **argu, line_inform *line
 		else
 			return -1;
 	}
-	line_info->location = Pinfo->location;
+	line_info->location += Pinfo->location + format;
 	line_info->format = format;
 	Pinfo->location += format;
 	return 1;
@@ -327,10 +327,9 @@ int make_line(char *string, int type, size_t idx, int *flag,
 
 	else if ( type == opcode ){
 		if ( opcode_process(Pinfo, Stable->hashTable,
-				Pinfo->argu, &line_info[idx]) == - 1)
+				Pinfo->argu, &line_info[idx]) == -1 )
             return -1;
-
-        strcpy ( line_info[idx].opcode , Pinfo->argu[0] );
+        strcpy( line_info[idx].opcode, Pinfo->argu[0] );
     }
 
 	else if ( type == asmd){ // assembly directives
@@ -345,7 +344,8 @@ int make_line(char *string, int type, size_t idx, int *flag,
 		Pinfo->location = (int)strtol(Pinfo->argu[2], &error, 16);
 		if( *error != '\0' ) // 16진수에 에러 있는 경우
 			return -1;
-		Pinfo->program_len = Pinfo->location;
+        Pinfo->program_len = Pinfo->location;
+        line_info[idx].location = Pinfo->location;
         strcpy(line_info[idx].asmd, "START");
 		strncpy(line_info[idx].symbol, Pinfo->argu[0], sizeof(line_info[idx].symbol));// start symbol
 	}
@@ -361,7 +361,7 @@ int make_line(char *string, int type, size_t idx, int *flag,
 		
         if ( !symbol_find(Stable, line_info[idx].symbol) ){
 			symbol_insert(Stable, line_info[idx].symbol,
-					line_info[idx].location);
+					Pinfo->location);
         }
 		else
 			return -1;
@@ -473,7 +473,7 @@ int obj_byte(FILE *fp, Symbol_table *symbolTable,
     char copy[30];
     char tmp[5];
     char *error = NULL;
-    int len = 0;
+    int len = 0, s = 0;
     strcpy(copy, line_info->operhand);
     c = ( 'A' <= c && c <= 'Z') ? c : c - 'a' + 'A';
     if ( c == 'C'){
@@ -511,6 +511,7 @@ int obj_byte(FILE *fp, Symbol_table *symbolTable,
                 printf("Error in byte");
                 return -1;
             }
+            s++;
         }
 
         len /= 2;
@@ -522,7 +523,6 @@ int obj_byte(FILE *fp, Symbol_table *symbolTable,
             obj_info[*idx].start = line_info->location;
         }
         line_info->obj_code = -2;
-        
     }
 
     else{
@@ -541,7 +541,7 @@ int obj_byte(FILE *fp, Symbol_table *symbolTable,
     else{
         obj_info[(*idx)].size += len;
         obj_info[*idx].start = line_info->location;
-        line_info->n_flag = 1;
+        //line_info->n_flag = s;
     }
     return 1;
 }
@@ -787,7 +787,6 @@ int assembler_pass2(char *filename, Symbol_table *symbolTable, int length,
 			continue;
 
 		linenum += 5;
-        printf("idx : %d\n", idx);
         //printf("format : %d\n", line_info[idx].format);
         //printf("line_info symbol : %s\n", line_info[idx].symbol);
 
