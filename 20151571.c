@@ -8,7 +8,7 @@ int main(void){
     Hash hashTable;
     History Hhead;
     Shell_Memory Shmemory;
-    Symbol_table Stable;
+    Symbol_table Stable ={ 37 };
     symbol_info symbolArr[500];
     sp1_init ( &Hhead, &Shmemory, &hashTable);
     sp2_init (&Stable);

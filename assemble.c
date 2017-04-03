@@ -7,7 +7,6 @@ int symbol_cmp(void *a, void *b){
 }
 
 void print_symbol(symbol_info *symbolTable, int size){
-    puts("");
     int idx;
     char copy[256];
     int address;
@@ -28,7 +27,7 @@ void print_symbol(symbol_info *symbolTable, int size){
     }
 
     for( int i = 0; i < size; ++i){
-        printf("\t%s\t%d\n", symbolTable[i].symbol, 
+        printf("\t%s\t%04X\n", symbolTable[i].symbol, 
                 symbolTable[i].address);
     }
 
@@ -953,7 +952,7 @@ int assembler_pass2(char *filename, Symbol_table *symbolTable, int length,
     object_inform obj_info[300];
 
     strcpy(copy, filename);
-    strtok(copy, ".asm");
+    strtok(copy, ".");
     strcpy(lstname, copy);
     strcat(lstname, ".lst");
     strcpy(objname, copy);
