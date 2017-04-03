@@ -8,7 +8,10 @@ int main(void){
     Hash hashTable;
     History Hhead;
     Shell_Memory Shmemory;
+    Symbol_table Stable;
+    symbol_info symbolArr[500];
     sp1_init ( &Hhead, &Shmemory, &hashTable);
+    sp2_init (&Stable);
     while(1){
         printf("sicsim> ");
         len = 0;
@@ -27,7 +30,8 @@ int main(void){
         }
         
         buffer[len] = '\0';
-        main_process(buffer, &Hhead, &Shmemory, &hashTable);
+        main_process(buffer, &Hhead, &Shmemory, &hashTable,
+                &Stable, symbolArr);
     }
     return 0;
 }

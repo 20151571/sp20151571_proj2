@@ -47,12 +47,16 @@ typedef struct __SYMBOL__{
     symbolPtr next;
 }Symbol;
 
-
 typedef struct{
     const int size; // 37
     Symbol *table[37];
     Hash *hashTable;
 }Symbol_table;
+
+typedef struct{
+    char symbol[5];
+    int address;
+}symbol_info;
 
 typedef struct{
     int location;

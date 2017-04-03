@@ -191,6 +191,12 @@ void sp1_init(History *Hhead, Shell_Memory *Shmemory, Hash *hashTable){
     get_opcode(hashTable); //opcode 저장
 }
 
+//초기화 함수
+void sp2_init(Symbol_table *Stable){
+    for ( int i = 0; i < 37; ++i)
+        Stable->table[i] = NULL;
+}
+
 /* mnemonic string에 해당하는 opcode가 존재하는지 hash에서 찾는 함수
  * 존재하면 number opcode를 return
  * 존재하지 않으면 return -1
@@ -273,17 +279,16 @@ int command_check(char *user_str){
 /* 사용자가 입력한 명령어를 처리해주는 함수
  * 명령어에 따라 적절하게 처리해준다.
  */
-void main_process(char *buffer, History *head, Shell_Memory *Shmemory, Hash *hashTable){
+void main_process(char *buffer, History *head, Shell_Memory *Shmemory,\
+        Hash *hashTable, Symbol_table *Stable, symbol_info symbolArr[]){
     int command_num;
     int error_check;
     char str_copy[256];
     int arr[5];
     History Hhead = *head;
-    Symbol_table Stable = { 37 };
-    Stable.hashTable = hashTable;
+    Stable->hashTable = hashTable;
     strncpy( str_copy, buffer, sizeof(str_copy));
     command_num = command_check(str_copy); // 명령어 존재하는지 확인
-
     if(command_num != -1){
         strncpy(str_copy, buffer, sizeof(str_copy));
         error_check = 1;
@@ -331,7 +336,7 @@ void main_process(char *buffer, History *head, Shell_Memory *Shmemory, Hash *has
                 break;
 
             case assemble:
-                command_assemble( &Stable, str_copy );
+                error_check = command_assemble( Stable, symbolArr, str_copy );
                 break;
 
             case type:
@@ -339,7 +344,7 @@ void main_process(char *buffer, History *head, Shell_Memory *Shmemory, Hash *has
                 break;
 
             case symbol:
-                command_symbol();
+                command_symbol(symbolArr);
                 break;
         }
         if ( error_check == 1 )
