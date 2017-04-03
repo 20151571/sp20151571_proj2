@@ -42,7 +42,7 @@ typedef struct{
 
 typedef struct __SYMBOL__ *symbolPtr;
 typedef struct __SYMBOL__{
-    char symbol[30];
+    char symbol[50];
     int address;
     symbolPtr next;
 }Symbol;
@@ -58,14 +58,15 @@ typedef struct{
     int location;
     int format; // format -1 : 주석
     int label_flag;
+    int base_flag;
     int n_flag;
     int modi_flag;
     int obj_code;
-    char asmd[30];
-    char opcode[30];
-    char symbol[30];
-    char operhand[30];
-    char obj_strcode[30];
+    char asmd[50];
+    char opcode[50];
+    char symbol[50];
+    char operhand[50];
+    char obj_strcode[50];
     char comment[100];
 }line_inform;
 

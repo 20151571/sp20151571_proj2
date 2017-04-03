@@ -45,7 +45,7 @@ int obj_opcode(FILE *, Hash *, Symbol_table *, line_inform *,
         object_inform *,int *, int *, int *);
 int remove_char(char *, Symbol_table *, int *, int *);
 int asmd_process(char **, line_inform *line_info, int location);
-int opcode_process(Pass1 *, Hash *, char **, line_inform *line_info);
+int opcode_location(Pass1 *, Hash *, char **, line_inform *line_info);
 int make_line(char *string, int type, size_t idx, int *flag,
         Symbol_table *, Pass1 *Pinfo, line_inform *line_info);
 void make_objfile();
