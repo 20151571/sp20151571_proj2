@@ -1,6 +1,72 @@
 #include "assemble.h"
 
-#include <time.h>
+void delete_whitespace(char* str){
+	int white_flag = 0;
+	int i, len;
+	int idx;
+	int first_char = 0;
+	int sep_flag = 0;
+
+	len = strlen(str);
+	for(i = 0; i <= len; i++){
+		if(i == len){
+			//EOF 넣음
+			if(white_flag >= 1)
+				str[i-white_flag] = '\0';
+		}
+
+		//whitespace 인경우 flag 증가
+		if(str[i] == '\''){
+			sep_flag++;
+			white_flag = 0;
+			if(sep_flag == 2)
+                sep_flag = 0;
+		}
+		if(sep_flag)
+			continue;
+
+		if(str[i] == ' ' || str[i] == '\t'){
+			white_flag++;
+			if(str[i] == '\t')
+                str[i] = ' ';
+		}
+		
+        else{ // whitespace 아닌 경우
+			if(white_flag >= 1){ // whitespace가 여려 개인 경우
+				if(!first_char)
+					strncpy(str+idx, str+i, len-i+1);
+				else if(str[i] == ',')
+					strncpy(str+idx, str+i, len-i+1), i--;
+                // whitespace 만큼 당김
+				else if(white_flag > 1)
+					strncpy(str+idx+1, str+i, len-i+1);
+				str[idx+len-i+1] = '\0';
+
+				len = strlen(str);
+				i = idx;
+			}
+			// ','인 경우
+			if(str[i] == ','){
+				// Add a space behind of ','
+				if(i+1 < 256 && (str[i+1] != ' ' && str[i+1] != '\t')){
+					char* tmp = (char*)malloc((len-i)*sizeof(char));
+					strcpy(tmp, str+i+1);
+					str[i+1] = ' ';
+					str[i+2] = '\0';
+					strcat(str,tmp);
+					len = strlen(str);
+					i--;
+				}
+			}
+            // flag 초기화
+			white_flag = 0;
+			first_char = 1;
+		}
+        // idx 초기화
+		if(white_flag == 1)
+			idx = i;
+	}
+}
 
 void sp2_init(Symbol_table *Stable){
 	for ( int i = 0; i < 37; ++i)
@@ -128,7 +194,6 @@ int get_byte(char **argu, line_inform *line_info){
 			argu[2][0] : (argu[2][0] - 'a' + 'A');
 	}
     
-    
     if ( argu[2][0] == 'C' ){
         if ( string[0] != 39 || string[len] != 39)
             return -1;
@@ -192,8 +257,17 @@ int get_argu(char *buffer, char *argu[], Hash *hashTable){
 	char sep[] = " \t\r\n";
 	char *token = NULL;
 	int type[5];
+    delete_whitespace(buffer);
+    if ( (token = strstr(buffer, ",")) != NULL){
+        if ( *(token -1 ) == ' '){
+            strcpy(token-1, token);
+            token--;
+        }
+        if( *(token + 1) == ' ')
+            strcpy(token, token + 1);
+    }
+    printf("%s\n", buffer);
 	token = strtok(buffer, sep);
-
 	while( token != NULL){
 		argu[len] = token;
 		type[len++]  = get_type(token, hashTable);
@@ -340,6 +414,7 @@ int make_line(char *string, int type, size_t idx, int *flag,
 				Pinfo->argu, &line_info[idx]) == -1 )
             return -1;
         strcpy( line_info[idx].opcode, Pinfo->argu[0]);
+        printf("Pinfo->argu : [%s]\n", Pinfo->argu[1]);
         if(Pinfo->argu[1] != NULL)
             strcpy( line_info[idx].operhand, Pinfo->argu[1]);
     }
@@ -494,6 +569,7 @@ int command_assemble(Symbol_table *symbolTable, char *command){
 		Pinfo.argu = argu;
 		if ( make_line(copy, type, idx++, &flag, symbolTable, &Pinfo, line_info) == -1 )
             return -1;
+        printf("operhand is : [%s]\n", line_info[idx-1].operhand);
     }
 	fclose(fp);
     
@@ -624,8 +700,8 @@ int obj_opcode(FILE *fp, Hash *hashTable, Symbol_table *symbolTable,
                 return -1;
             }
             strcat(tmp1, tmp3);
-
-            regi_num = get_register(strtok(NULL,","));
+            regi_num = get_register(strtok(NULL,"\t\n\r "));
+            printf("%d\n", regi_num);
             sprintf(tmp3,"%d",regi_num);
             if(regi_num == -1) {
                 printf("ERROR in format 2\n");
@@ -733,8 +809,8 @@ int obj_opcode(FILE *fp, Hash *hashTable, Symbol_table *symbolTable,
         strcpy(tmp3, tmp3+1);
         
         hashptr = opcode_find(hashTable, tmp3);
-        
-            if(strstr(tmp2,",")!=NULL) {
+
+        if(strstr(tmp2,",")!=NULL) {
             if(strstr(tmp2,"X") != NULL || strstr(tmp2,"x")) {
                 arr[2] = 1;
                 strtok(tmp2,",");
@@ -929,8 +1005,8 @@ int assembler_pass2(char *filename, Symbol_table *symbolTable, int length,
 			}
 			else if(type == 4){ //word인 경우
                 num = strtol(line_info[idx].operhand, &errorp, 10);
-				if(errorp != NULL) {
-					printf("ERROR in WORD\n");
+				if(*errorp != '\0') {
+					printf("Error in WORD\n");
 					error = 1;
 					continue;
 				}
@@ -956,7 +1032,7 @@ int assembler_pass2(char *filename, Symbol_table *symbolTable, int length,
 			}
 			else if(type == 5) { //resb인 경우
                 num = strtol(line_info[idx].operhand, &errorp, 10);
-                if(errorp != NULL) {
+                if( *errorp != '\0') {
                     printf("ERROR in WORD\n");
                     error = 1;
                     continue;
@@ -968,7 +1044,7 @@ int assembler_pass2(char *filename, Symbol_table *symbolTable, int length,
 
 			else if(type == 6) { //resw인 경우
                 num = strtol(line_info[idx].operhand, &errorp, 10);
-                if(errorp != NULL) {
+                if( *errorp != '\0') {
                     printf("ERROR in WORD\n");
                     error = 1;
                     continue;

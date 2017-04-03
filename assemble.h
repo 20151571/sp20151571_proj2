@@ -23,6 +23,7 @@ typedef enum{
     comment, opcode, pass1_start, asmd, label, pass1_end
 }pass1_info;
 
+void delete_whitespace(char *);
 void sp2_init(Symbol_table *); // 초기화 함수
 int get_Stablekey(Symbol_table *, char *); // symbol_table에 넣을 string의 key를 구해주는 함수
 symbolPtr symbol_find(Symbol_table *, char *string);
