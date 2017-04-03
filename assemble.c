@@ -525,14 +525,14 @@ int obj_byte(FILE *fp, Symbol_table *symbolTable,
     if ( c == 'C'){
         if ( strstr(copy, "'") == NULL){
             printf("Error in byte\n");
-            return -1;
+            return 1;
         }
 
         line_info->obj_code = -2;
 
         if ( strlen(copy + 2) > 31 ){
             printf("Error in byte length\n");
-            return -1;
+            return 1;
         }
         for ( int i = 2; copy[i] != 39 && copy[i] != '\0'; ++i){
             fprintf(fp, "%02X",(int)copy[i]);
@@ -547,14 +547,14 @@ int obj_byte(FILE *fp, Symbol_table *symbolTable,
         strtol(copy + 2, &error , 16);
         if ( strstr(copy, "'") == NULL || *error != 39){
             printf("Error in byte\n");
-            return -1;
+            return 1;
         }
 
         for ( int i = 2; copy[i] != 39 || copy[i] != '\0'; ++i ){
             len = i - 1;
             if( i >= 62){
                 printf("Error in byte");
-                return -1;
+                return 1;
             }
             s++;
         }
@@ -572,7 +572,7 @@ int obj_byte(FILE *fp, Symbol_table *symbolTable,
 
     else{
         printf("Error in byte\n");
-        return -1;
+        return 1;
     }
 
     if(*obj_flag == 1){
@@ -588,7 +588,7 @@ int obj_byte(FILE *fp, Symbol_table *symbolTable,
         obj_info[*idx].start = line_info->location;
         //line_info->n_flag = s;
     }
-    return 1;
+    return 0;
 }
 
 int obj_opcode(FILE *fp, Hash *hashTable, Symbol_table *symbolTable,
