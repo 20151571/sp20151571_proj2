@@ -58,3 +58,10 @@ Commands that can use in sicsim
 			- Show opcodes in hash table
 		- opcode mnemonic
 			- Show opcode of mnemonic
+
+    - assemble filename
+        - Assembling file
+    - type filename
+        - Show file contents
+    - symbol
+        - Show the recent symbol table of the successful assemble file
