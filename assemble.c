@@ -1,6 +1,7 @@
 #include "assemble.h"
 
-/* 두개의 symbol string을 비교해주는 함수
+/* 
+ * 두개의 symbol string을 비교해주는 함수
  *  a < b return -1
  *  a == b return 0
  *  a > b return 1
@@ -231,7 +232,8 @@ int get_asmd(char *string) {
 
     return -1; // error
 }
-/* operand가 byte인 경우 line에 operand에 byte 값을 넣고에러 있는지 확인해주는 함수
+/* 
+ * operand가 byte인 경우 line에 operand에 byte 값을 넣고에러 있는지 확인해주는 함수
  */
 int get_byte(char **argu, line_inform *line_info){
     char *string = &argu[2][1];
@@ -310,7 +312,8 @@ int get_type(char *string, Hash *hashTable){
     return label; // label
 }
 
-/*tokenize를 하여서해당하는라인이 comment인지 opcode인지 label이 없는지 확인해주는 함수
+/*
+ * tokenize를 하여서해당하는라인이 comment인지 opcode인지 label이 없는지 확인해주는 함수
  * error가 발견되면 return 1
  * 정상적이라면 return 0
  */
