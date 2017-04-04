@@ -24,7 +24,7 @@ void print_symbol(symbol_info *symbolTable, int size){
     for(int i = 0; i < size; ++i){
         idx = i;
         for( int j = i; j < size; ++j){
-            if ( symbol_cmp(symbolTable[j].symbol, symbolTable[idx].symbol) < 0 )
+            if ( symbol_cmp(symbolTable[j].symbol, symbolTable[idx].symbol) > 0 )
                 idx = j;
         }
         //swap

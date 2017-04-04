@@ -1,3 +1,4 @@
+COPY   START  0000
 FIRST  STL    RETADR
        LDB    #LENGTH
        BASE   LENGTH
