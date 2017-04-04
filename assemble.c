@@ -49,7 +49,7 @@ void print_symbol(symbol_info *symbolTable, int size){
  * whitespace('\t', ' ') 같은 것들을 삭제해주는 함수
  */
 void delete_whitespace(char* str){
-    int white_flag = 0;
+    int whitend_flag = 0;
     int i, len;
     int idx;
     int first_char = 0;
@@ -59,13 +59,13 @@ void delete_whitespace(char* str){
     for(i = 0; i <= len; i++){
         if(i == len){
             //EOF 넣음
-            if(white_flag >= 1)
-                str[i-white_flag] = '\0';
+            if(whitend_flag >= 1)
+                str[i-whitend_flag] = '\0';
         }
         //whitespace 인경우 flag 증가
         if(str[i] == '\''){
             sep_flag++;
-            white_flag = 0;
+            whitend_flag = 0;
             if(sep_flag == 2)
                 sep_flag = 0;
         }
@@ -73,19 +73,19 @@ void delete_whitespace(char* str){
             continue;
 
         if(str[i] == ' ' || str[i] == '\t'){
-            white_flag++;
+            whitend_flag++;
             if(str[i] == '\t')
                 str[i] = ' ';
         }
 
         else{ // whitespace 아닌 경우
-            if(white_flag >= 1){ // whitespace가 여려 개인 경우
+            if(whitend_flag >= 1){ // whitespace가 여려 개인 경우
                 if(!first_char)
                     strncpy(str+idx, str+i, len-i+1);
                 else if(str[i] == ',')
                     strncpy(str+idx, str+i, len-i+1), i--;
                 // whitespace 만큼 당김
-                else if(white_flag > 1)
+                else if(whitend_flag > 1)
                     strncpy(str+idx+1, str+i, len-i+1);
                 str[idx+len-i+1] = '\0';
 
@@ -106,11 +106,11 @@ void delete_whitespace(char* str){
                 }
             }
             // flag 초기화
-            white_flag = 0;
+            whitend_flag = 0;
             first_char = 1;
         }
         // idx 초기화
-        if(white_flag == 1)
+        if(whitend_flag == 1)
             idx = i;
     }
 }
@@ -690,11 +690,11 @@ int command_assemble(Symbol_table *symbolTable, symbol_info *success_symbol, cha
 int obj_byte(FILE *fp, Symbol_table *symbolTable,
         line_inform *line_info, object_inform *obj_info,
         int *obj_flag, int *idx){
-    char c = line_info->operhand[0];
+    char c = line_info->operhand[0]; // 'C' or 'X'저장
     char copy[30];
     char tmp[5];
     char *error = NULL;
-    int len = 0, s = 0;
+    int len = 0;
     strcpy(copy, line_info->operhand);
 
     c = ( 'A' <= c && c <= 'Z') ? c : c - 'a' + 'A';
@@ -711,8 +711,8 @@ int obj_byte(FILE *fp, Symbol_table *symbolTable,
             return 1;
         }
         for ( int i = 2; copy[i] != 39 && copy[i] != '\0'; ++i){ // byte code 출력
-            fprintf(fp, "%02X",(int)copy[i]);
-            sprintf(tmp, "%02X", (int)copy[i]);
+            fprintf(fp, "%02X",(int)copy[i]); // byte
+            sprintf(tmp, "%02X", (int)copy[i]); // 
             strcat(line_info->obj_strcode, tmp);
             len++;
         }
@@ -732,7 +732,6 @@ int obj_byte(FILE *fp, Symbol_table *symbolTable,
                 printf("Error in byte\n");
                 return 1;
             }
-            s++;
         }
 
         len /= 2;
@@ -764,7 +763,6 @@ int obj_byte(FILE *fp, Symbol_table *symbolTable,
     else{
         obj_info[(*idx)].size += len;
         obj_info[*idx].start = line_info->location; // object code 새로운 라인
-        //line_info->n_flag = s;
     }
     return 0;
 }
@@ -979,19 +977,18 @@ int obj_opcode(FILE *fp, Hash *hashTable, Symbol_table *symbolTable,
  */
 void make_objfile(FILE *fp, int start_address, int start_line, line_inform *line_info, object_inform *obj_info) {	//오브젝트 파일 생성 함수
     int i = -1, idx = start_line; //임시 변수
-    int e_flag = 0;	//end 플래그
+    int end_flag = 0;	//end 플래그
     fprintf(fp,"H%s  %06X%06X",line_info[idx].symbol, line_info[idx].location, start_address); // start line
 
     while(1) {	//end가 아닐 때 까지
-        if(e_flag == 1)
+        if(end_flag == 1)
             break;
         i++;
-        fprintf(fp,"\nT%06X%02X",obj_info[i].start, obj_info[i].size); // start address and size
+        fprintf(fp,"\nT%06X%02X", obj_info[i].start, obj_info[i].size); // start address and size
         while(1) { // line 끝날 대 까지
             idx++;
-
             if(get_asmd(line_info[idx].asmd) == end) { // 도중에 end 들어온 경우
-                e_flag = 1;
+                end_flag = 1;
                 break;
             }
 

@@ -40,7 +40,6 @@ int get_byte(char **, line_inform *line_info); // byte인 경우 값을 구해�
 int loc_count(char *, int asmd, int location ); // location counter
 int get_objcode(int opcode, int n, int i, int x,
        int b, int p, int e, int address); // object code 생성함수
-int get_operhand(char *); // operhand를 구해주는 함수
 int get_argu(char *, char **, Hash *); // 인자 개수를 확인해주는 함수
 int obj_byte(FILE *, Symbol_table*, line_inform *line_info,
         object_inform *,int *, int *); // byte 인경우 object code 생성
